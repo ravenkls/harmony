@@ -1,0 +1,5 @@
+general.*
+music.play
+music.nowplaying
+music.skip
+music.queue
