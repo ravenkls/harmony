@@ -1,4 +1,5 @@
 env/
 cache/
 .git/
+plugins/__pycache__/
 token.txt
