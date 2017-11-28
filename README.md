@@ -7,7 +7,7 @@
 
 ### Introduction
 
-Harmony is a fully featured music bot created for Discord.
+Harmony is a fully featured music bot created for Discord. It also features other pointless commands which you may find yourself using.
 
 ### Features
 
