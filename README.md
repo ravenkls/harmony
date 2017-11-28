@@ -16,3 +16,4 @@ Harmony is a fully featured music bot created for Discord. It also features othe
 * Poll
 * Moderation commands
 * Other useless commands :)
+* Fully functioning permissions system!
