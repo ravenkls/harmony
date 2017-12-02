@@ -75,8 +75,10 @@ class Bot(commands.Bot):
         self.log("OK https://discordapp.com/oauth2/authorize?client_id={}&scope=bot".format(self.user.id))
 
 
-token = open("token.txt").read().strip()
+def main():
+    bot = Bot("?")
+    bot.load_from("plugins")
+    bot.run(os.environ.get("HARMONY_TOKEN"))
 
-bot = Bot("?")
-bot.load_from("plugins")
-bot.run(token)
+if __name__ == "__main__":
+    main()
