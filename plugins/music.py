@@ -11,6 +11,9 @@ import datetime
 import random
 import pafy
 
+if not discord.opus.is_loaded():
+    discord.opus.load_opus('libopus.so')
+
 # Suppress noise about console usage from errors
 youtube_dl.utils.bug_reports_message = lambda: ''
 
