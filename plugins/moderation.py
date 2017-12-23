@@ -1,9 +1,6 @@
 from discord.ext import commands
-from operator import itemgetter
-from fuzzywuzzy import process
+import asyncio
 import discord
-import aiohttp
-import csv
 
 
 class Moderation:
@@ -13,18 +10,17 @@ class Moderation:
     @commands.command()
     @commands.guild_only()
     async def poll(self, ctx, *, question):
-        try:
-            await ctx.message.delete()
-        except:
-            pass
-        message = await ctx.send("**Poll:** " + "@everyone " + question + "\n\n**Results:** 0% / 0%")
+        """Create a poll"""
+        if not question.endswith("?"):
+            question += "?"
+        message = await ctx.send("**Poll:** " + "@everyone " + question)
         await message.add_reaction("✅")
         await message.add_reaction("❎")
 
     @commands.command(aliases=["vckick"])
     @commands.guild_only()
     async def voicekick(self, ctx, member: discord.Member):
-        """ Kicks a member from voice chat """
+        """Kick a member from voice chat"""
         if member.voice is not None:
             kick_channel = await ctx.guild.create_voice_channel(name=self.bot.user.name)
             await member.move_to(kick_channel)
@@ -33,26 +29,17 @@ class Moderation:
         else:
             await ctx.send("{0.name} is not in a voice channel".format(member))
 
-    @commands.command(aliases=["emoji"])
+    @commands.command(aliases=["clear", "clean", "cls"])
     @commands.guild_only()
-    async def twitchify(self, ctx, *, emote):
-        """ Searches through twitch emotes and adds it to your server
-__[See the full list of emotes here](https://twitchemotes.com/)__"""
-        emotes = {}
-        with open("emotes.csv") as file:
-            csvfile = csv.reader(file)
-            emotes = dict(csvfile)
-        names = emotes.keys()
-        results = process.extract(emote, names, limit=3)
-        best_match = max(results, key=itemgetter(1))
-        if best_match[1] == 100:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(emotes[best_match[0]]) as resp:
-                    emoji = await ctx.guild.create_custom_emoji(name=best_match[0], image=await resp.read())
-                    await ctx.send("{} I have added the `{}` emoji".format(str(emoji), best_match[0]))
+    async def purge(self, ctx, limit=100, member: discord.Member=None):
+        """Remove messages from a channel"""
+        if member is not None:
+            await ctx.channel.purge(limit=limit, check=lambda m: m.author is member)
         else:
-            await ctx.send("**I couldn't find an emoji by the name `{}`.**\nDid you mean:\n".format(emote)
-                           + "\n".join(["* " + i[0] for i in results]))
+            await ctx.channel.purge(limit=limit)
+        completed = await ctx.send(":white_check_mark:")
+        await asyncio.sleep(2)
+        await completed.delete()
 
 
 def setup(bot):

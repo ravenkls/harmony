@@ -7,11 +7,10 @@ from fuzzywuzzy import fuzz
 
 class General:
     init_at = None
+
     def __init__(self, bot):
         self.bot = bot
         self.bot.remove_command("help")
-        self.bot.on_reaction_add = self.poll_reaction
-        self.bot.on_reaction_remove = self.poll_reaction
         if self.init_at is None:
             self.init_at = datetime.datetime.utcnow()
 
@@ -46,30 +45,6 @@ class General:
                     perm_node = ".".join([module, command.name])
                     help_embed.add_field(name="Permission Node", value="`" + perm_node + "`")
                 await ctx.send(embed=help_embed)
-
-    async def poll_reaction(self, reaction, user):
-        if user != self.bot.user:
-            if reaction.message.content.startswith("**Poll:**"):
-                if reaction.emoji == "✅" or reaction.emoji == "❎":
-                    yes = 0
-                    no = 0
-                    total = 0
-                    for r in reaction.message.reactions:
-                        if r.emoji == "✅":
-                            yes = r.count - 1
-                            total += r.count - 1
-                        elif r.emoji == "❎":
-                            no += r.count - 1
-                            total += r.count - 1
-                    if total == 0:
-                        total = 1
-                    lines = reaction.message.content.split("\n")
-                    lines[2] = "**Results:** {}% / {}%".format(int((yes / total) * 100), int((no / total) * 100))
-                    await reaction.message.edit(content="\n".join(lines))
-
-    async def on_reaction_remove(self, reaction, user):
-        if reaction.message.content.startswith("**Poll:**"):
-            pass
 
     @commands.command()
     async def ping(self, ctx):

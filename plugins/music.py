@@ -9,6 +9,7 @@ import isodate
 from math import ceil
 import datetime
 import random
+import pafy
 
 # Suppress noise about console usage from errors
 youtube_dl.utils.bug_reports_message = lambda: ''
@@ -54,6 +55,9 @@ class YTDLSource:
         self.video_id = data.get("id")
         self.title = data.get('title')
         self.thumb = data["thumbnails"]["default"].get("url")
+        pafy_vid = pafy.new(self.video_id)
+        bestaudio = pafy_vid.getbestaudio()
+        self.streaming_url = bestaudio.url
         self.duration = None
         self.filename = None
 
@@ -78,7 +82,8 @@ class YTDLSource:
 
     @property
     def source(self):
-        return discord.FFmpegPCMAudio(self.filename)
+        return discord.FFmpegPCMAudio(self.streaming_url)
+        #return discord.FFmpegPCMAudio(self.filename)
 
     @classmethod
     async def from_url(cls, ctx, url):

@@ -2,10 +2,11 @@ aiohttp==2.2.5
 async-timeout==2.0.0
 cffi==1.11.2
 chardet==3.0.4
--e git+https://github.com/Rapptz/discord.py@rewrite#egg=discord.py[voice]
+discord.py==1.0.0a1405+g54ea52c
 fuzzywuzzy==0.15.1
 isodate==0.6.0
 multidict==3.3.2
+pafy==0.5.3.1
 pycparser==2.18
 PyNaCl==1.0.1
 python-Levenshtein==0.12.0

@@ -78,7 +78,11 @@ class Bot(commands.Bot):
 def main():
     bot = Bot("?")
     bot.load_from("plugins")
-    bot.run(os.environ.get("HARMONY_TOKEN"))
+    #bot.unload("plugins.music")
+    token = os.environ.get("HARMONY_TOKEN")
+    if not token:
+        token = open("token.txt").read().strip()
+    bot.run(token)
 
 if __name__ == "__main__":
     main()
