@@ -126,7 +126,10 @@ class Music:
             self.song_started = time.time()
 
     def is_playing(self, ctx):
-        return ctx.voice_client is not None and ctx.voice_client.is_playing()
+        if ctx.voice_client is None or self.now_playing is None:
+            return None
+
+        return ctx.voice_client.is_playing()
 
     @commands.command(aliases=["yt"])
     @commands.guild_only()
@@ -185,7 +188,7 @@ class Music:
         if self.is_playing(ctx):
             self.bot.log("skipping")
             ctx.voice_client.stop()
-            self.toggle_next(None)
+            # self.toggle_next(None)
         else:
             await ctx.send("Nothing is being played")
 
