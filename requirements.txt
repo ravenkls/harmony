@@ -2,7 +2,7 @@ aiohttp==2.2.5
 async-timeout==2.0.0
 cffi==1.11.2
 chardet==3.0.4
-discord.py==1.0.0a1405+g54ea52c
+-e git+https://github.com/Rapptz/discord.py@45432ab26facbbb5762d79b96ced8cce98c4728d#egg=discord.py
 fuzzywuzzy==0.15.1
 isodate==0.6.0
 multidict==3.3.2
