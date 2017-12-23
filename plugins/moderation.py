@@ -9,13 +9,20 @@ class Moderation:
 
     @commands.command()
     @commands.guild_only()
-    async def poll(self, ctx, *, question):
-        """Create a poll"""
-        if not question.endswith("?"):
-            question += "?"
-        message = await ctx.send("**Poll:** " + "@everyone " + question)
-        await message.add_reaction("✅")
-        await message.add_reaction("❎")
+    async def poll(self, ctx, question, *options: str):
+        """Create a poll
+Example: `poll \"How old are you?\" \"0-20\" \"21-40\" \"41-60\" \"61+\"`"""
+        if len(options) > 9:
+            return await ctx.send("I can't do a poll with more than 9 options")
+        message = await ctx.send("**Poll:** @everyone " + question + "\n" +
+                                 "\n".join(f"**{n+1}** {option}" for n, option in enumerate(options)))
+        emojis = ["\U00000031\U000020E3", "\U00000032\U000020E3",
+                  "\U00000033\U000020E3", "\U00000034\U000020E3",
+                  "\U00000035\U000020E3", "\U00000036\U000020E3",
+                  "\U00000037\U000020E3", "\U00000038\U000020E3",
+                  "\U00000039\U000020E3"]
+        for num in range(len(options)):
+            await message.add_reaction(emojis[num])
 
     @commands.command(aliases=["vckick"])
     @commands.guild_only()

@@ -4,14 +4,38 @@ import random
 import os
 import inspect
 
+INSTALLED_PLUGINS = [
+    "plugins.general",
+    "plugins.music",
+    "plugins.moderation",
+    "plugins.permissions"
+]
+
 
 class Bot(commands.Bot):
     def __init__(self, command_prefix, *args, **kwargs):
         self.log("Initialising")
         super().__init__(command_prefix, *args, **kwargs)
         self.embed_colour = lambda: random.randint(0, 0xFFFFFF)
+        self.prefix = command_prefix
 
     def get_usage(self, command):
+        args_spec = inspect.getfullargspec(command.callback)  # Get arguments of command
+        args_info = []
+        [args_info.append("".join(["<", arg, ">"])) for arg in args_spec.args[2:]]  # List arguments
+        if args_spec.defaults is not None:
+            for index, default in enumerate(args_spec.defaults):  # Modify <> to [] for optional arguments
+                default_arg = list(args_info[-(index + 1)])
+                default_arg[0] = "["
+                default_arg[-1] = "]"
+                args_info[-(index + 1)] = "".join(default_arg)
+        if args_spec.varargs:  # Compensate for *args
+            args_info.append("<" + args_spec.varargs + ">")
+        if args_spec.kwonlyargs:
+            args_info.extend(["<" + a + ">" for a in args_spec.kwonlyargs])
+        args_info.insert(0, self.prefix + command.name)  # Add command name to the front
+        return " ".join(args_info)  # Return args
+
         args = inspect.getfullargspec(command.callback)
         args_info = {}
         for arg in args[0][2:] + args[4]:
@@ -30,13 +54,15 @@ class Bot(commands.Bot):
         header = "[" + name + " " * (10 - len(name)) + "]"
         print(header, value)
 
-    def load(self, plugin):
-        self.load_extension(plugin)
-        self.log("Successfully loaded {}".format(plugin), name="Plugins")
+    def load(self, *plugin):
+        for p in plugin:
+            self.load_extension(p)
+            self.log("Successfully loaded {}".format(p), name="Plugins")
 
-    def unload(self, plugin):
-        self.unload_extension(plugin)
-        self.log("Successfully unloaded {}".format(plugin), name="Plugins")
+    def unload(self, *plugin):
+        for p in plugin:
+            self.unload_extension(p)
+            self.log("Successfully unloaded {}".format(p), name="Plugins")
 
     def load_from(self, directory):
         for file in os.listdir(directory):
@@ -77,8 +103,7 @@ class Bot(commands.Bot):
 
 def main():
     bot = Bot("?")
-    bot.load_from("plugins")
-    #bot.unload("plugins.music")
+    bot.load(*INSTALLED_PLUGINS)
     token = os.environ.get("HARMONY_TOKEN")
     if not token:
         token = open("token.txt").read().strip()

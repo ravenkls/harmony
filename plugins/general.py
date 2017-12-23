@@ -43,7 +43,7 @@ class General:
                 if "Permissions" in self.bot.cogs:
                     module = command.module.split(".")[1]
                     perm_node = ".".join([module, command.name])
-                    help_embed.add_field(name="Permission Node", value="`" + perm_node + "`")
+                    help_embed.add_field(name="Permission Node", value="`" + perm_node + "`", inline=False)
                 await ctx.send(embed=help_embed)
 
     @commands.command()
