@@ -156,7 +156,8 @@ class Music:
     async def get_average_colour(self, image_url):
         async with aiohttp.ClientSession() as session:
             response = await session.get(image_url)
-            image = Image.open(response.read())
+            image_bytes = await response.read()
+            image = Image.open(image_bytes)
         w, h = image.size
         pixels = image.getcolors(w * h)
         [pixels.remove(c) for c in pixels if c[1] == (0, 0, 0)]  # remove black from colours
