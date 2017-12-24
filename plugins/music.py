@@ -1,5 +1,6 @@
 from discord.ext import commands
 from PIL import Image
+from io import BytesIO
 import asyncio
 import discord
 import youtube_dl
@@ -157,7 +158,8 @@ class Music:
         async with aiohttp.ClientSession() as session:
             response = await session.get(image_url)
             image_bytes = await response.read()
-            image = Image.open(image_bytes)
+            image_file = BytesIO(image_bytes)
+            image = Image.open(image_file)
         w, h = image.size
         pixels = image.getcolors(w * h)
         [pixels.remove(c) for c in pixels if c[1] == (0, 0, 0)]  # remove black from colours
