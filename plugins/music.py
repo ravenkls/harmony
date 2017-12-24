@@ -1,4 +1,5 @@
 from discord.ext import commands
+from PIL import Image
 import asyncio
 import discord
 import youtube_dl
@@ -152,6 +153,16 @@ class Music:
         if self.now_playing is None:
             self.next_song.set()
 
+    async def get_average_colour(self, image_url):
+        async with aiohttp.ClientSession() as session:
+            response = await session.get(image_url)
+            image = Image.open(response)
+        w, h = image.size
+        pixels = image.getcolors(w * h)
+        [pixels.remove(c) for c in pixels if c[1] == (0, 0, 0)]  # remove black from colours
+        most_frequent = max(pixels, lambda x: x[0])
+        return most_frequent[1]
+
     @commands.command(aliases=["np"])
     @commands.guild_only()
     async def nowplaying(self, ctx):
@@ -175,7 +186,8 @@ class Music:
             nowplaying_fmt = "**Now playing:** [{}](https://www.youtube.com/watch?v={})"
             controls = ":play_pause: :sound: `{} / {}`".format(string_current, string_duration)
             desc = "\n".join([nowplaying_fmt.format(self.now_playing.title, self.now_playing.video_id), "~~" + "".join(seeker) + "~~", controls])
-            np_embed = discord.Embed(description=desc, colour=random.randint(0, 0xFFFFFF))
+            avg_colour = await self.get_average_colour(self.now_playing.thumb)
+            np_embed = discord.Embed(description=desc, colour=discord.Colour.from_rgb(*avg_colour))
             np_embed.set_thumbnail(url=self.now_playing.thumb)
             await ctx.send(embed=np_embed)
         else:
