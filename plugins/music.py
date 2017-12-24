@@ -88,7 +88,6 @@ class YTDLSource:
     @property
     def source(self):
         return discord.FFmpegPCMAudio(self.streaming_url)
-        #return discord.FFmpegPCMAudio(self.filename)
 
     @classmethod
     async def from_url(cls, ctx, url):
@@ -162,8 +161,8 @@ class Music:
             image = Image.open(image_file)
         w, h = image.size
         pixels = image.getcolors(w * h)
-        [pixels.remove(c) for c in pixels if c[1] == (0, 0, 0)]  # remove black from colours
-        most_frequent = max(pixels, lambda x: x[0])
+        light_pixels = [c for c in pixels if sum(c[1]) > 25]  # remove black from colours
+        most_frequent = max(light_pixels, key=lambda x: x[0])
         return most_frequent[1]
 
     @commands.command(aliases=["np"])
