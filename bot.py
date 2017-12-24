@@ -17,7 +17,7 @@ class Bot(commands.Bot):
     def __init__(self, command_prefix, *args, **kwargs):
         self.log("Initialising")
         super().__init__(command_prefix, *args, **kwargs)
-        self.embed_colour = lambda: random.randint(0, 0xFFFFFF)
+        self.embed_colour = lambda: discord.Embed.Empty
         self.prefix = command_prefix
 
     def get_usage(self, command):
