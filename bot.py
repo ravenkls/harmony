@@ -4,15 +4,16 @@ import random
 import os
 import inspect
 
-INSTALLED_PLUGINS = [
-    "plugins.general",
-    "plugins.music",
-    "plugins.moderation",
-    "plugins.permissions"
-]
-
 
 class Bot(commands.Bot):
+
+    INSTALLED_PLUGINS = [
+        "plugins.general",
+        "plugins.music",
+        "plugins.moderation",
+        "plugins.permissions"
+    ]
+
     def __init__(self, command_prefix, *args, **kwargs):
         self.log("Initialising")
         super().__init__(command_prefix, *args, **kwargs)
@@ -64,18 +65,23 @@ class Bot(commands.Bot):
             self.unload_extension(p)
             self.log("Successfully unloaded {}".format(p), name="Plugins")
 
-    def load_from(self, directory):
-        for file in os.listdir(directory):
-            import_path = ".".join(directory.split("/") + [file[:-3]])
-            if file.endswith(".py"):
-                self.load(import_path)
+    def reload(self, *plugin):
+        for p in plugin:
+            self.unload(p)
+            self.load(p)
+        return len(plugin)
 
-    def reload_from(self, directory):
-        for file in os.listdir(directory):
-            import_path = ".".join(directory.split("/") + [file[:-3]])
-            if file.endswith(".py"):
-                self.unload(import_path)
-                self.load(import_path)
+    async def set_playing(self):
+        guilds = sum(1 for _ in self.guilds)
+        await self.change_presence(game=discord.Game(name=f"on {guilds} guilds"))
+
+    async def on_guild_join(self, guild):
+        await self.set_playing()
+        await guild.send(f"Thank you for adding {self.bot.user.name}. Type `?help` for a full list of commands \n"
+                         "Please consider giving feedback via the `?feedback` command - it's greatly appreciated :slight_smile:")
+
+    async def on_guild_remove(self, guild):
+        await self.set_playing()
 
     async def on_command_error(self, ctx, exception):
         if type(exception) == discord.ext.commands.errors.CommandNotFound:
@@ -99,11 +105,13 @@ class Bot(commands.Bot):
 
     async def on_ready(self):
         self.log("OK https://discordapp.com/oauth2/authorize?client_id={}&scope=bot".format(self.user.id))
+        self.app_info = await self.application_info()
+        await self.set_playing()
 
 
 def main():
     bot = Bot("?")
-    bot.load(*INSTALLED_PLUGINS)
+    bot.load(*Bot.INSTALLED_PLUGINS)
     token = os.environ.get("HARMONY_TOKEN")
     if not token:
         token = open("token.txt").read().strip()

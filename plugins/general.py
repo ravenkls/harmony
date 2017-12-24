@@ -3,6 +3,7 @@ import datetime
 import discord
 import inspect
 from fuzzywuzzy import fuzz
+import datetime
 
 
 class General:
@@ -47,8 +48,20 @@ class General:
                 await ctx.send(embed=help_embed)
 
     @commands.command()
+    async def feedback(self, ctx, *, message):
+        """Give me feedback on the bot. Feel free to give any suggestions!"""
+        if len(message) < 20:
+            return await ctx.send("Please make your message over 20 characters.")
+        feedback_embed = discord.Embed(description=message)
+        feedback_embed.set_author(name=str(ctx.author), icon_url=ctx.author.avatar_url)
+        feedback_embed.set_thumbnail(url=ctx.guild.icon or "https://i.imgur.com/WvTRCXX.jpg")
+        feedback_embed.set_footer(text=datetime.datetime.now())
+        await self.bot.app_info.owner.send(embed=feedback_embed)
+        await ctx.send("Thank you, your feedback has been noted.")
+
+    @commands.command()
     async def ping(self, ctx):
-        """ Pong! """
+        """Pong!"""
         diff = ctx.message.created_at - datetime.datetime.utcnow()
         ms = int(diff.total_seconds() * 1000)
         await ctx.send(":ping_pong: `{}ms`".format(ms))
@@ -62,18 +75,20 @@ class General:
         h, m = divmod(m, 60)
         d, h = divmod(h, 24)
         d, h, m, s = map(int, (d, h, m, s))
-        uptime_embed = discord.Embed(description=":clock5:  **Ive been online for: ** {}d {}h {}m {}s".format(d, h, m, s), colour = self.bot.embed_colour())
+        uptime_embed = discord.Embed(description=f":clock5:  **Ive been online for: ** {d}d {h}h {m}m {s}s", colour=self.bot.embed_colour())
         await ctx.send(embed=uptime_embed)
 
     @commands.command(hidden=True)
     @commands.is_owner()
     async def reload(self, ctx, plugin=None):
+        """Reloads all plugins or a specific plugin"""
         if plugin is None:
-            self.bot.reload_from("plugins")
+            num = self.bot.reload(*self.bot.INSTALLED_PLUGINS)
+            await ctx.send(f"{num} plugins have been reloaded.")
         else:
             self.bot.unload(plugin)
             self.bot.load(plugin)
-        await ctx.send("Reload complete!")
+            await ctx.send(f"{plugin} has been reloaded!")
 
     @commands.command(name="eval", hidden=True)
     @commands.is_owner()
