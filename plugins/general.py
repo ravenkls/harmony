@@ -52,8 +52,6 @@ class General:
     @commands.cooldown(rate=2, per=43200, type=BucketType.user)
     async def feedback(self, ctx, *, message):
         """Give me feedback on the bot. Feel free to give any suggestions!"""
-        if len(message) < 20:
-            return await ctx.send("Please make your message over 20 characters.")
         feedback_embed = discord.Embed(description=message)
         feedback_embed.set_author(name=str(ctx.author), icon_url=ctx.author.avatar_url)
         feedback_embed.set_thumbnail(url=ctx.guild.icon or "https://i.imgur.com/WvTRCXX.jpg")
