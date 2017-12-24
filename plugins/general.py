@@ -54,7 +54,7 @@ class General:
         """Give me feedback on the bot. Feel free to give any suggestions!"""
         feedback_embed = discord.Embed(description=message)
         feedback_embed.set_author(name=str(ctx.author), icon_url=ctx.author.avatar_url)
-        feedback_embed.set_thumbnail(url=ctx.guild.icon or "https://i.imgur.com/WvTRCXX.jpg")
+        feedback_embed.set_thumbnail(url=ctx.guild.icon_url or "https://i.imgur.com/WvTRCXX.jpg")
         feedback_embed.set_footer(text=datetime.datetime.now())
         await self.bot.app_info.owner.send(embed=feedback_embed)
         await ctx.send("Thank you, your feedback has been noted.")
