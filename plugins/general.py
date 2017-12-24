@@ -1,4 +1,5 @@
 from discord.ext import commands
+from discord.ext.commands.cooldowns import BucketType
 import datetime
 import discord
 import inspect
@@ -48,6 +49,7 @@ class General:
                 await ctx.send(embed=help_embed)
 
     @commands.command()
+    @commands.cooldown(rate=2, per=43200, type=BucketType.user)
     async def feedback(self, ctx, *, message):
         """Give me feedback on the bot. Feel free to give any suggestions!"""
         if len(message) < 20:
