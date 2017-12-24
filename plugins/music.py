@@ -11,7 +11,7 @@ import isodate
 from math import ceil
 import datetime
 import random
-import pafy
+from functools import partial
 
 if not discord.opus.is_loaded():
     discord.opus.load_opus('libopus.so')
@@ -22,7 +22,7 @@ youtube_dl.utils.bug_reports_message = lambda: ''
 cache_directory = "cache"
 
 ytdl_format_options = {
-    'format': 'webm',
+    'format': 'bestaudio',
     'outtmpl': os.path.join(cache_directory, '%(id)s.%(ext)s'),
     'noplaylist': True,
     'nocheckcertificate': True,
@@ -60,11 +60,7 @@ class YTDLSource:
         self.video_id = data.get("id")
         self.title = data.get('title')
         self.thumb = data["thumbnails"]["default"].get("url")
-        pafy_vid = pafy.new(self.video_id)
-        bestaudio = pafy_vid.getbestaudio()
-        self.streaming_url = bestaudio.url
         self.duration = None
-        self.filename = None
 
     async def get_duration(self):
         with aiohttp.ClientSession() as session:
@@ -77,13 +73,8 @@ class YTDLSource:
         return self.duration
 
     async def download(self, loop=None):
-        if not os.path.exists(os.path.join(cache_directory, self.video_id + ".webm")):
-            loop = loop or asyncio.get_event_loop()
-            dl = await loop.run_in_executor(None, ytdl.extract_info, self.video_id)
-            self.filename = os.path.join(cache_directory, self.video_id + "." + dl["ext"])
-        else:
-            self.filename = os.path.join(cache_directory, self.video_id + ".webm")
-        return self.filename
+        self.info = ytdl.extract_info(self.video_id, download=False)
+        self.streaming_url = self.info.get("url")
 
     @property
     def source(self):
@@ -91,7 +82,6 @@ class YTDLSource:
 
     @classmethod
     async def from_url(cls, ctx, url):
-
         data = await search_yt(url)
         video_id = data["id"]
         data = data["snippet"]
