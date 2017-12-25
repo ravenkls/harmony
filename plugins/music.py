@@ -55,6 +55,7 @@ async def search_yt(query):
 
 class YTDLSource:
     def __init__(self, ctx, data):
+        self.requester = ctx.author
         self.data = data
         self.ctx = ctx
         self.video_id = data.get("id")
@@ -158,6 +159,9 @@ class VoiceState:
             return True
 
     def toggle_next(self, error):
+        if not self.no_np_updater:
+            self.np_updater.cancel()
+            self.no_np_updater = True
         self.bot.loop.call_soon_threadsafe(self.next_song.set)
 
     def is_playing(self):
@@ -242,15 +246,17 @@ class Music:
             hours, minutes = divmod(minutes, 60)
             string_current = datetime.time(*map(int, [hours, minutes, seconds])).strftime("%M:%S")
 
-            seeker = ["▬"] * 25
+            seeker = ["▬"] * 30
             seeker.insert(seeker_index - 1, ":radio_button:")
 
-            slider = "~~" + "".join(seeker) + "~~" + string_duration
+            slider = "~~" + "".join(seeker) + "~~"
+            footer = f"{string_current} / {string_duration} - Requested by {str(state.now_playing.requester)}"
             avg_colour = await self.get_average_colour(state.now_playing.thumb)
             np_embed = discord.Embed(colour=discord.Colour.from_rgb(*avg_colour), title=slider)
             np_embed.set_author(name=state.now_playing.title,
                                 url=f"https://www.youtube.com/watch?v={state.now_playing.video_id}",
                                 icon_url=state.now_playing.thumb)
+            np_embed.set_footer(text=footer, icon_url="https://i.imgur.com/2CK3w4E.png")
             return np_embed
 
     @commands.command(aliases=["np"])
