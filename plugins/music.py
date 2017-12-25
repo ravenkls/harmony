@@ -89,17 +89,15 @@ class YTDLSource:
         return cls(ctx, data)
 
 
-class Music:
+class VoiceState:
     def __init__(self, bot):
-        self.bot = bot
-        self.queue = []
-        self.next_song = asyncio.Event()
         self.now_playing = None
-        self.audio_player = self.bot.loop.create_task(self.audio_player_task())
+        self.voice = None
+        self.queue = []
+        self.bot = bot
         self.song_started = 0
-
-    def toggle_next(self, error):
-        self.bot.loop.call_soon_threadsafe(self.next_song.set)
+        self.next_song = asyncio.Event()
+        self.audio_player = self.bot.loop.create_task(self.audio_player_task())
 
     async def audio_player_task(self):
         while True:
@@ -116,32 +114,64 @@ class Music:
             player(self.now_playing.source, after=self.toggle_next)
             self.song_started = time.time()
 
+    def skip(self):
+        if self.is_playing():
+            self.voice.stop()
+            return True
+
+    def toggle_next(self, error):
+        self.bot.loop.call_soon_threadsafe(self.next_song.set)
+
     def is_playing(self, ctx):
         if ctx.voice_client is None or self.now_playing is None:
             return None
 
         return ctx.voice_client.is_playing()
 
+
+class Music:
+    def __init__(self, bot):
+        self.bot = bot
+        self.voice_states = {}
+
+    def get_voice_state(self, guild):
+        state = self.voice_states.get(guild.id)
+        if state is None:
+            state = VoiceState(self.bot)
+            self.voice_states[guild.id] = state
+
+        return state
+
+    async def create_voice_client(self, channel):
+        try:
+            voice = await channel.connect()
+        except discord.ClientException:  # already in channel
+            voice = channel.guild.voice_client
+            await voice.move_to(channel)
+        state = self.get_voice_state(channel.guild)
+        state.voice = voice
+
     @commands.command(aliases=["yt"])
     @commands.guild_only()
     async def play(self, ctx, *, query):
         """Streams from a url (almost anything youtube_dl supports)"""
-        if ctx.voice_client is None:
+        state = self.get_voice_state(ctx.guild)
+        if state.voice is None:
             if ctx.author.voice and ctx.author.voice.channel:
-                await ctx.author.voice.channel.connect()
+                await self.create_voice_client(ctx.author.voice.channel)
             else:
                 return await ctx.send("Not connected to a voice channel.")
         else:
-            if ctx.author.voice.channel is not ctx.voice_client.channel:
-                await ctx.voice_client.move_to(ctx.author.voice.channel)
+            if ctx.author.voice.channel is not state.voice.channel:
+                await state.voice.move_to(ctx.author.voice.channel)
 
         player = await YTDLSource.from_url(ctx, query)
-        self.queue.append((ctx.voice_client.play, player))
+        state.queue.append((ctx.voice_client.play, player))
 
-        await ctx.send(":minidisc: `{}` has been added to the queue at position `{}`".format(player.title, len(self.queue)))
+        await ctx.send(":minidisc: `{}` has been added to the queue at position `{}`".format(player.title, len(state.queue)))
 
-        if self.now_playing is None:
-            self.next_song.set()
+        if state.now_playing is None:
+            state.next_song.set()
 
     async def get_average_colour(self, image_url):
         async with aiohttp.ClientSession() as session:
@@ -159,9 +189,10 @@ class Music:
     @commands.guild_only()
     async def nowplaying(self, ctx):
         """ Shows you the currently playing song """
-        if self.is_playing(ctx):
-            duration = self.now_playing.duration or await self.now_playing.get_duration()
-            current_time = time.time() - self.song_started
+        state = self.get_voice_state(ctx.guild)
+        if state.is_playing(ctx):
+            duration = state.now_playing.duration or await state.now_playing.get_duration()
+            current_time = time.time() - state.song_started
             percent = current_time / duration
             seeker_index = ceil(percent * 25)
 
@@ -177,10 +208,10 @@ class Music:
             seeker.insert(seeker_index - 1, ":radio_button:")
             nowplaying_fmt = "**Now playing:** [{}](https://www.youtube.com/watch?v={})"
             controls = ":play_pause: :sound: `{} / {}`".format(string_current, string_duration)
-            desc = "\n".join([nowplaying_fmt.format(self.now_playing.title, self.now_playing.video_id), "~~" + "".join(seeker) + "~~", controls])
-            avg_colour = await self.get_average_colour(self.now_playing.thumb)
+            desc = "\n".join([nowplaying_fmt.format(state.now_playing.title, state.now_playing.video_id), "~~" + "".join(seeker) + "~~", controls])
+            avg_colour = await self.get_average_colour(state.now_playing.thumb)
             np_embed = discord.Embed(description=desc, colour=discord.Colour.from_rgb(*avg_colour))
-            np_embed.set_thumbnail(url=self.now_playing.thumb)
+            np_embed.set_thumbnail(url=state.now_playing.thumb)
             await ctx.send(embed=np_embed)
         else:
             await ctx.send("Nothing is being played")
@@ -189,19 +220,17 @@ class Music:
     @commands.guild_only()
     async def skip(self, ctx):
         """ Skips the song """
-        if self.is_playing(ctx):
-            self.bot.log("skipping")
-            ctx.voice_client.stop()
-            # self.toggle_next(None)
-        else:
+        state = self.get_voice_state(ctx.guild)
+        if not state.skip():
             await ctx.send("Nothing is being played")
 
     @commands.command()
     @commands.guild_only()
     async def stop(self, ctx):
         """Stops and disconnects the bot from voice"""
-        if self.is_playing(ctx):
-            await ctx.voice_client.disconnect()
+        state = self.get_voice_state(ctx.guild)
+        if state.is_playing(ctx):
+            await state.voice.disconnect()
         else:
             await ctx.send("Nothing is being played")
 
@@ -209,16 +238,17 @@ class Music:
     @commands.guild_only()
     async def _queue(self, ctx, page: int=1):
         """ Shows you the current music queue """
-        if len(self.queue) < 1:
+        state = self.get_voice_state(ctx.guild)
+        if len(state.queue) < 1:
             await ctx.send("The queue is empty")
         else:
             offset = 10 * (page - 1)
-            pages = ceil(len(self.queue) / 10)
+            pages = ceil(len(state.queue) / 10)
             if page > pages or page < 0:
                 await ctx.send("That page does not exist")
             else:
-                view = self.queue[offset:offset + 10]
-                nowplaying_fmt = "[{}](https://www.youtube.com/watch?v={})".format(self.now_playing.title, self.now_playing.video_id)
+                view = state.queue[offset:offset + 10]
+                nowplaying_fmt = "[{}](https://www.youtube.com/watch?v={})".format(state.now_playing.title, state.now_playing.video_id)
                 queue_embed = discord.Embed(title="Now playing", description=nowplaying_fmt, colour=random.randint(0, 0xFFFFFF))
                 s_fmt = "**{0}**. {1[1].title}"
                 queue_embed.add_field(name="Song Queue", value="\n".join([s_fmt.format(i + 1 + offset, s) for i, s in enumerate(view)]))
