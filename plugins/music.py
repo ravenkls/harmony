@@ -90,7 +90,8 @@ class YTDLSource:
 
 
 class VoiceState:
-    def __init__(self, bot):
+    def __init__(self, music, bot):
+        self.music = music
         self.now_playing = None
         self.voice = None
         self.queue = []
@@ -98,6 +99,28 @@ class VoiceState:
         self.song_started = 0
         self.next_song = asyncio.Event()
         self.audio_player = self.bot.loop.create_task(self.audio_player_task())
+        self._now_playing_message = None
+        self.no_np_updater = True
+
+    @property
+    def now_playing_message(self):
+        return self._now_playing_message
+
+    @now_playing_message.setter
+    def now_playing_message(self, new):
+        self._now_playing_message = new
+        self.np_updater = self.bot.loop.create_task(self.np_updater_task())
+        if not self.no_np_updater:
+            self.np_updater.cancel()
+        self.no_np_updater = False
+
+    async def np_updater_task(self):
+        await asyncio.sleep(5)
+        while self.is_playing():
+            np_embed = await self.music.get_now_playing_embed(self.voice.guild)
+            await self._now_playing_message.edit(embed=np_embed)
+            await asyncio.sleep(self.now_playing.duration // 25)
+        self.no_np_updater = True
 
     async def audio_player_task(self):
         while True:
@@ -117,16 +140,31 @@ class VoiceState:
     def skip(self):
         if self.is_playing():
             self.voice.stop()
+            if not self.no_np_updater:
+                self.np_updater.cancel()
+                self.no_np_updater = True
+            return True
+
+    async def stop(self):
+        if self.is_playing():
+            await self.voice.disconnect()
+            self.queue = []
+            self.voice = None
+            self.now_playing = None
+            self._now_playing_message = None
+            if not self.no_np_updater:
+                self.np_updater.cancel()
+                self.no_np_updater = True
             return True
 
     def toggle_next(self, error):
         self.bot.loop.call_soon_threadsafe(self.next_song.set)
 
-    def is_playing(self, ctx):
-        if ctx.voice_client is None or self.now_playing is None:
+    def is_playing(self):
+        if self.voice is None or self.now_playing is None:
             return None
 
-        return ctx.voice_client.is_playing()
+        return self.voice.is_playing()
 
 
 class Music:
@@ -137,7 +175,7 @@ class Music:
     def get_voice_state(self, guild):
         state = self.voice_states.get(guild.id)
         if state is None:
-            state = VoiceState(self.bot)
+            state = VoiceState(self, self.bot)
             self.voice_states[guild.id] = state
 
         return state
@@ -166,12 +204,15 @@ class Music:
                 await state.voice.move_to(ctx.author.voice.channel)
 
         player = await YTDLSource.from_url(ctx, query)
-        state.queue.append((ctx.voice_client.play, player))
-
-        await ctx.send(":minidisc: `{}` has been added to the queue at position `{}`".format(player.title, len(state.queue)))
+        state.queue.append((state.voice.play, player))
 
         if state.now_playing is None:
             state.next_song.set()
+            while not state.is_playing():
+                await asyncio.sleep(1)
+            return await self.nowplaying.invoke(ctx)
+
+        await ctx.send(":minidisc: `{}` has been added to the queue at position `{}`".format(player.title, len(state.queue)))
 
     async def get_average_colour(self, image_url):
         async with aiohttp.ClientSession() as session:
@@ -185,12 +226,9 @@ class Music:
         most_frequent = max(light_pixels, key=lambda x: x[0])
         return most_frequent[1]
 
-    @commands.command(aliases=["np"])
-    @commands.guild_only()
-    async def nowplaying(self, ctx):
-        """ Shows you the currently playing song """
-        state = self.get_voice_state(ctx.guild)
-        if state.is_playing(ctx):
+    async def get_now_playing_embed(self, guild):
+        state = self.get_voice_state(guild)
+        if state.is_playing():
             duration = state.now_playing.duration or await state.now_playing.get_duration()
             current_time = time.time() - state.song_started
             percent = current_time / duration
@@ -206,13 +244,23 @@ class Music:
 
             seeker = ["▬"] * 25
             seeker.insert(seeker_index - 1, ":radio_button:")
-            nowplaying_fmt = "**Now playing:** [{}](https://www.youtube.com/watch?v={})"
-            controls = ":play_pause: :sound: `{} / {}`".format(string_current, string_duration)
-            desc = "\n".join([nowplaying_fmt.format(state.now_playing.title, state.now_playing.video_id), "~~" + "".join(seeker) + "~~", controls])
+
+            slider = "~~" + "".join(seeker) + "~~" + string_duration
             avg_colour = await self.get_average_colour(state.now_playing.thumb)
-            np_embed = discord.Embed(description=desc, colour=discord.Colour.from_rgb(*avg_colour))
-            np_embed.set_thumbnail(url=state.now_playing.thumb)
-            await ctx.send(embed=np_embed)
+            np_embed = discord.Embed(colour=discord.Colour.from_rgb(*avg_colour), title=slider)
+            np_embed.set_author(name=state.now_playing.title,
+                                url=f"https://www.youtube.com/watch?v={state.now_playing.video_id}",
+                                icon_url=state.now_playing.thumb)
+            return np_embed
+
+    @commands.command(aliases=["np"])
+    @commands.guild_only()
+    async def nowplaying(self, ctx):
+        """ Shows you the currently playing song """
+        state = self.get_voice_state(ctx.guild)
+        if state.is_playing():
+            np_embed = await self.get_now_playing_embed(ctx.guild)
+            state.now_playing_message = await ctx.send(embed=np_embed)
         else:
             await ctx.send("Nothing is being played")
 
@@ -229,9 +277,8 @@ class Music:
     async def stop(self, ctx):
         """Stops and disconnects the bot from voice"""
         state = self.get_voice_state(ctx.guild)
-        if state.is_playing(ctx):
-            await state.voice.disconnect()
-        else:
+        disconnected = await state.stop()
+        if not disconnected:
             await ctx.send("Nothing is being played")
 
     @commands.command(aliases=["q", "list"], name="queue")
@@ -248,11 +295,14 @@ class Music:
                 await ctx.send("That page does not exist")
             else:
                 view = state.queue[offset:offset + 10]
-                nowplaying_fmt = "[{}](https://www.youtube.com/watch?v={})".format(state.now_playing.title, state.now_playing.video_id)
-                queue_embed = discord.Embed(title="Now playing", description=nowplaying_fmt, colour=random.randint(0, 0xFFFFFF))
-                s_fmt = "**{0}**. {1[1].title}"
-                queue_embed.add_field(name="Song Queue", value="\n".join([s_fmt.format(i + 1 + offset, s) for i, s in enumerate(view)]))
+
+                #nowplaying_fmt = await self.get_now_playing_(ctx.guild)
+                s_fmt = "{0}. {1[1].title}"
+                song_queue_fmt = "\n".join([s_fmt.format(i + 1 + offset, s) for i, s in enumerate(view)])
+
+                queue_embed = discord.Embed(description="\n".join(["```", song_queue_fmt, "```"]))
                 queue_embed.set_footer(text="Page {}/{}".format(page, pages))
+                queue_embed.set_thumbnail(url=state.now_playing.thumb)
                 await ctx.send(embed=queue_embed)
 
 
