@@ -98,6 +98,12 @@ class General:
         except Exception as e:
             await ctx.send("```python\n{}```".format(e))
 
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def edit(self, ctx, kw, arg):
+        await self.bot.user.edit(**{kw: arg})
+        await ctx.send("Done")
+
 
 def setup(bot):
     bot.add_cog(General(bot))
