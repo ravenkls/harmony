@@ -10,8 +10,8 @@ class Bot(commands.Bot):
     INSTALLED_PLUGINS = [
         "plugins.general",
         "plugins.music",
-        "plugins.moderation",
-        "plugins.permissions"
+        # "plugins.moderation",
+        # "plugins.permissions"
     ]
 
     def __init__(self, command_prefix, *args, **kwargs):
