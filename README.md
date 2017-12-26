@@ -1,5 +1,9 @@
 # Harmony
 
+<a href="https://discordbots.org/bot/358954387953025024">
+  <img src="https://discordbots.org/api/widget/status/358954387953025024.svg?noavatar=true" alt="Discord Bots" />
+</a>
+
 ### Contents
 
 1. Introduction
