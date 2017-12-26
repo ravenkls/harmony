@@ -12,6 +12,7 @@ from math import ceil
 import datetime
 import random
 from functools import partial
+from bs4 import BeautifulSoup
 
 if not discord.opus.is_loaded():
     discord.opus.load_opus('libopus.so')
@@ -197,6 +198,29 @@ class Music:
             return await self.nowplaying.invoke(ctx)
 
         await ctx.send(":minidisc: `{}` has been added to the queue at position `{}`".format(player.title, len(state.queue)))
+
+    @commands.command()
+    async def lyrics(self, ctx, *, song):
+        """Get the lyrics of a song (provided by azlyrics.com)"""
+        async with aiohttp.ClientSession() as session:
+            search_url = "https://search.azlyrics.com/search.php"
+            web = await session.request("get", search_url, params={"q": song})
+            text = await web.text()
+        soup = BeautifulSoup(text, "html.parser")
+        panels = soup.findAll("div", {"class": "panel"})
+        for p in panels:
+            if "Song results" in p.select_one(".panel-heading").text:
+                song_results = p
+                break
+        items = song_results.findAll("td", {"class": "text-left"})
+        results = []
+        for item in items[:5]:
+            href = item.select_one("a").get("href")
+            results.append(href)
+        desc = "\n".join(f"**{n+1}.** {href}" for n, href in enumerate(results))
+        lyrics_embed = discord.Embed(description=desc, colour=0x9292C5)
+        lyrics_embed.set_author(name="AZLyrics", icon_url="https://i.imgur.com/uGJZtDB.png")
+        await ctx.send(embed=lyrics_embed)
 
     async def get_average_colour(self, image_url):
         async with aiohttp.ClientSession() as session:
