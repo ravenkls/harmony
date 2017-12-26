@@ -59,9 +59,21 @@ class YTDLSource:
         self.data = data
         self.ctx = ctx
         self.video_id = data.get("id")
+        self.channel_id = data.get("channelId")
         self.title = data.get('title')
         self.thumb = data["thumbnails"]["default"].get("url")
         self.duration = None
+        self.author_avatar = None
+
+    async def get_author_avatar(self):
+        with aiohttp.ClientSession() as session:
+            payload = {"id": self.channel_id, "part": "snippet", "key": APIKEY}
+            url = "https://www.googleapis.com/youtube/v3/channels"
+            web = await session.request("get", url, params=payload)
+            resp = await web.json()
+            snippet = resp.get("items")[0].get("snippet")
+            self.author_avatar = snippet["thumbnails"]["default"].get("url")
+        return self.author_avatar
 
     async def get_duration(self):
         with aiohttp.ClientSession() as session:
@@ -101,27 +113,6 @@ class VoiceState:
         self.next_song = asyncio.Event()
         self.audio_player = self.bot.loop.create_task(self.audio_player_task())
         self._now_playing_message = None
-        self.no_np_updater = True
-
-    @property
-    def now_playing_message(self):
-        return self._now_playing_message
-
-    @now_playing_message.setter
-    def now_playing_message(self, new):
-        self._now_playing_message = new
-        self.np_updater = self.bot.loop.create_task(self.np_updater_task())
-        if not self.no_np_updater:
-            self.np_updater.cancel()
-        self.no_np_updater = False
-
-    async def np_updater_task(self):
-        await asyncio.sleep(5)
-        while self.is_playing():
-            np_embed = await self.music.get_now_playing_embed(self.voice.guild)
-            await self._now_playing_message.edit(embed=np_embed)
-            await asyncio.sleep(self.now_playing.duration // 25)
-        self.no_np_updater = True
 
     async def audio_player_task(self):
         while True:
@@ -141,9 +132,6 @@ class VoiceState:
     def skip(self):
         if self.is_playing():
             self.voice.stop()
-            if not self.no_np_updater:
-                self.np_updater.cancel()
-                self.no_np_updater = True
             return True
 
     async def stop(self):
@@ -153,15 +141,9 @@ class VoiceState:
             self.voice = None
             self.now_playing = None
             self._now_playing_message = None
-            if not self.no_np_updater:
-                self.np_updater.cancel()
-                self.no_np_updater = True
             return True
 
     def toggle_next(self, error):
-        if not self.no_np_updater:
-            self.np_updater.cancel()
-            self.no_np_updater = True
         self.bot.loop.call_soon_threadsafe(self.next_song.set)
 
     def is_playing(self):
@@ -236,7 +218,7 @@ class Music:
             duration = state.now_playing.duration or await state.now_playing.get_duration()
             current_time = time.time() - state.song_started
             percent = current_time / duration
-            seeker_index = ceil(percent * 25)
+            seeker_index = ceil(percent * 30)
 
             minutes, seconds = divmod(duration, 60)
             hours, minutes = divmod(minutes, 60)
@@ -253,10 +235,12 @@ class Music:
             footer = f"{string_current} / {string_duration} - Requested by {str(state.now_playing.requester)}"
             avg_colour = await self.get_average_colour(state.now_playing.thumb)
             np_embed = discord.Embed(colour=discord.Colour.from_rgb(*avg_colour), title=slider)
+            avatar = state.now_playing.author_avatar or await state.now_playing.get_author_avatar()
             np_embed.set_author(name=state.now_playing.title,
                                 url=f"https://www.youtube.com/watch?v={state.now_playing.video_id}",
-                                icon_url=state.now_playing.thumb)
+                                icon_url=avatar)
             np_embed.set_footer(text=footer, icon_url="https://i.imgur.com/2CK3w4E.png")
+            np_embed.set_thumbnail(url=state.now_playing.thumb)
             return np_embed
 
     @commands.command(aliases=["np"])
