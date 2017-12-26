@@ -218,7 +218,7 @@ class Music:
             duration = state.now_playing.duration or await state.now_playing.get_duration()
             current_time = time.time() - state.song_started
             percent = current_time / duration
-            seeker_index = ceil(percent * 30)
+            seeker_index = ceil(percent * 25)
 
             minutes, seconds = divmod(duration, 60)
             hours, minutes = divmod(minutes, 60)
@@ -228,7 +228,7 @@ class Music:
             hours, minutes = divmod(minutes, 60)
             string_current = datetime.time(*map(int, [hours, minutes, seconds])).strftime("%M:%S")
 
-            seeker = ["▬"] * 30
+            seeker = ["▬"] * 25
             seeker.insert(seeker_index - 1, ":radio_button:")
 
             slider = "~~" + "".join(seeker) + "~~"
