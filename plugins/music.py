@@ -218,7 +218,7 @@ class Music:
             duration = state.now_playing.duration or await state.now_playing.get_duration()
             current_time = time.time() - state.song_started
             percent = current_time / duration
-            seeker_index = ceil(percent * 25)
+            seeker_index = ceil(percent * 60)
 
             minutes, seconds = divmod(duration, 60)
             hours, minutes = divmod(minutes, 60)
@@ -228,18 +228,18 @@ class Music:
             hours, minutes = divmod(minutes, 60)
             string_current = datetime.time(*map(int, [hours, minutes, seconds])).strftime("%M:%S")
 
-            seeker = ["▬"] * 25
-            seeker.insert(seeker_index - 1, ":radio_button:")
+            seeker = ["▬"] * 60
+            seeker.insert(seeker_index - 1, "🔘")
 
-            slider = "~~" + "".join(seeker) + "~~"
-            footer = f"{string_current} / {string_duration} - Requested by {str(state.now_playing.requester)}"
+            slider = "`" + "".join(seeker) + "`"
+            footer = f"{string_current} / {string_duration} - {str(state.now_playing.requester)}"
             avg_colour = await self.get_average_colour(state.now_playing.thumb)
-            np_embed = discord.Embed(colour=discord.Colour.from_rgb(*avg_colour), title=slider)
+            np_embed = discord.Embed(colour=discord.Colour.from_rgb(*avg_colour), description=slider + "\n" + footer)
             avatar = state.now_playing.author_avatar or await state.now_playing.get_author_avatar()
             np_embed.set_author(name=state.now_playing.title,
                                 url=f"https://www.youtube.com/watch?v={state.now_playing.video_id}",
                                 icon_url=avatar)
-            np_embed.set_footer(text=footer, icon_url="https://i.imgur.com/2CK3w4E.png")
+            #np_embed.set_footer(text=footer, icon_url="https://i.imgur.com/2CK3w4E.png")
             np_embed.set_thumbnail(url=state.now_playing.thumb)
             return np_embed
 
