@@ -229,7 +229,7 @@ class Music:
             seeker = ["▬"] * 30
             seeker.insert(seeker_index - 1, "🔘")
 
-            slider = "`" + "".join(seeker) + "`"
+            slider = "".join(seeker)
             footer = f"{string_current} / {string_duration} - {str(state.now_playing.requester)}"
             avatar = state.now_playing.author_avatar or await state.now_playing.get_author_avatar()
             avg_colour = await self.get_average_colour(avatar)
