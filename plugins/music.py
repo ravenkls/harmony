@@ -114,6 +114,7 @@ class VoiceState:
         self.next_song = asyncio.Event()
         self.audio_player = self.bot.loop.create_task(self.audio_player_task())
         self.looping_queue = []
+        self.player = None
 
     async def leave_task(self):
         await asyncio.sleep(120)
@@ -134,9 +135,9 @@ class VoiceState:
                     self.next_song.clear()
                     self.bot.loop.create_task(self.leave_task())
                     continue
-            player, self.now_playing = self.queue.pop(0)
+            self.player, self.now_playing = self.queue.pop(0)
             await self.now_playing.download()
-            player(self.now_playing.source, after=self.toggle_next)
+            self.player(self.now_playing.source, after=self.toggle_next)
             self.song_started = time.time()
 
     def loopqueue(self):
@@ -144,6 +145,7 @@ class VoiceState:
             self.looping_queue = []
         else:
             self.looping_queue = list(self.queue)
+            self.looping_queue.insert(0, (self.player, self.now_playing))
         return len(self.looping_queue) > 0
 
     def skip(self):
@@ -207,6 +209,8 @@ class Music:
 
         player = await YTDLSource.from_url(ctx, query)
         state.queue.append((state.voice.play, player))
+        if state.looping_queue:
+            state.looping_queue.append((state.voice.play, player))
 
         if state.now_playing is None:
             state.next_song.set()
@@ -227,6 +231,8 @@ class Music:
                 await ctx.send("The current queue will now loop")
             else:
                 await ctx.send("The queue will no longer loop")
+        else:
+            await ctx.send("Nothing is being played")
 
     @commands.command()
     async def lyrics(self, ctx, *, song):
