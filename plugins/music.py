@@ -215,8 +215,9 @@ class Music:
         items = song_results.findAll("td", {"class": "text-left"})
         results = []
         for item in items[:5]:
-            href = item.select_one("a").get("href")
-            results.append(href)
+            anchor = item.select_one("a")
+            title, artist = item.findAll("b")[:2]
+            results.append(f"[{title.text} by {artist.text}]({anchor.get('href')})")
         desc = "\n".join(f"**{n+1}.** {href}" for n, href in enumerate(results))
         lyrics_embed = discord.Embed(description=desc, colour=0x9292C5)
         lyrics_embed.set_author(name="AZLyrics", icon_url="https://i.imgur.com/uGJZtDB.png")
