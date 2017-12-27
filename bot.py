@@ -77,8 +77,13 @@ class Bot(commands.Bot):
 
     async def on_guild_join(self, guild):
         await self.set_playing()
-        await guild.send(f"Thank you for adding {self.bot.user.name}. Type `?help` for a full list of commands \n"
-                         "Please consider giving feedback via the `?feedback` command - it's greatly appreciated :slight_smile:")
+        for channel in guild.text_channels:
+            try:
+                await channel.send(f"Thank you for adding {self.bot.user.name}. Type `?help` for a full list of commands \n"
+                                  "Please consider giving feedback via the `?feedback` command - it's greatly appreciated :slight_smile:")
+                break
+            except:
+                continue
 
     async def on_guild_remove(self, guild):
         await self.set_playing()
