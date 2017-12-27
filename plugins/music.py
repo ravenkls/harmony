@@ -119,11 +119,10 @@ class VoiceState:
             await self.next_song.wait()
             self.next_song.clear()
             if len(self.queue) < 1:
-                self.queue = []
-                self.now_playing = None
-                self.voice = None
-                await self.now_playing.ctx.voice_client.disconnect()
+                await self.voice.disconnect()
                 await self.now_playing.ctx.send("Queue concluded.")
+                self.voice = None
+                self.now_playing = None
                 self.next_song.clear()
                 continue
             player, self.now_playing = self.queue.pop(0)
