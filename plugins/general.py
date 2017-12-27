@@ -94,7 +94,11 @@ class General:
     @commands.is_owner()
     async def _eval(self, ctx, *, code):
         try:
-            await ctx.send("```python\n{}```".format(eval(code)))
+            if code.startswith("await "):
+                response = await eval(code.replace("await ", ""))
+            else:
+                response = eval(code)
+            await ctx.send("```python\n{}```".format(response))
         except Exception as e:
             await ctx.send("```python\n{}```".format(e))
 
