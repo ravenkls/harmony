@@ -114,16 +114,21 @@ class VoiceState:
         self.next_song = asyncio.Event()
         self.audio_player = self.bot.loop.create_task(self.audio_player_task())
 
+    async def leave_task(self):
+        await asyncio.sleep(120)
+        if not self.is_playing():
+            await self.voice.disconnect()
+            self.voice = None
+
     async def audio_player_task(self):
         while True:
             await self.next_song.wait()
             self.next_song.clear()
             if len(self.queue) < 1:
-                await self.voice.disconnect()
                 await self.now_playing.ctx.send("Queue concluded.")
-                self.voice = None
                 self.now_playing = None
                 self.next_song.clear()
+                self.bot.loop.create_task(self.leave_task())
                 continue
             player, self.now_playing = self.queue.pop(0)
             await self.now_playing.download()
@@ -148,7 +153,7 @@ class VoiceState:
 
     def is_playing(self):
         if self.voice is None or self.now_playing is None:
-            return None
+            return False
 
         return self.voice.is_playing()
 
