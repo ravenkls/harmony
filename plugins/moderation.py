@@ -48,6 +48,24 @@ Example: `poll \"How old are you?\" \"0-20\" \"21-40\" \"41-60\" \"61+\"`"""
         await asyncio.sleep(2)
         await completed.delete()
 
+    @commands.command()
+    @commands.guild_only()
+    async def mute(self, ctx, member: discord.Member, seconds: int=0, *, reason=None):
+        """Prevents someone from speaking in all text and voice channels for a duration"""
+        try:
+            text_overwrite = discord.PermissionOverwrite(send_messages=False)
+            voice_overwrite = discord.PermissionOverwrite(speak=False)
+            for channel in ctx.guild.channels:
+                if type(channel) == discord.TextChannel:
+                    await channel.set_permissions(member, overwrite=text_overwrite, reason=reason)
+                elif type(channel) == discord.VoiceChannel:
+                    await channel.set_permissions(member, overwrite=voice_overwrite, reason=reason)
+        except Exception as e:
+            print(e)
+            await ctx.send("no perms")
+        if seconds > 0:
+            pass
+
 
 def setup(bot):
     bot.add_cog(Moderation(bot))

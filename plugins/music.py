@@ -113,6 +113,7 @@ class VoiceState:
         self.song_started = 0
         self.next_song = asyncio.Event()
         self.audio_player = self.bot.loop.create_task(self.audio_player_task())
+        self.looping_queue = []
 
     async def leave_task(self):
         await asyncio.sleep(120)
@@ -125,15 +126,25 @@ class VoiceState:
             await self.next_song.wait()
             self.next_song.clear()
             if len(self.queue) < 1:
-                await self.now_playing.ctx.send("Queue concluded.")
-                self.now_playing = None
-                self.next_song.clear()
-                self.bot.loop.create_task(self.leave_task())
-                continue
+                if self.looping_queue:
+                    self.queue = list(self.looping_queue)
+                else:
+                    await self.now_playing.ctx.send("Queue concluded.")
+                    self.now_playing = None
+                    self.next_song.clear()
+                    self.bot.loop.create_task(self.leave_task())
+                    continue
             player, self.now_playing = self.queue.pop(0)
             await self.now_playing.download()
             player(self.now_playing.source, after=self.toggle_next)
             self.song_started = time.time()
+
+    def loopqueue(self):
+        if self.looping_queue:
+            self.looping_queue = []
+        else:
+            self.looping_queue = list(self.queue)
+        return len(self.looping_queue) > 0
 
     def skip(self):
         if self.is_playing():
@@ -204,6 +215,18 @@ class Music:
             return await self.nowplaying.invoke(ctx)
 
         await ctx.send(":minidisc: `{}` has been added to the queue at position `{}`".format(player.title, len(state.queue)))
+
+    @commands.command()
+    @commands.guild_only()
+    async def loopqueue(self, ctx):
+        """Loops the current queue"""
+        state = self.get_voice_state(ctx.guild)
+        if state.is_playing():
+            looping = state.loopqueue()
+            if looping:
+                await ctx.send("The current queue will now loop")
+            else:
+                await ctx.send("The queue will no longer loop")
 
     @commands.command()
     async def lyrics(self, ctx, *, song):

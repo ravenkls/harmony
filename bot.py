@@ -80,7 +80,7 @@ class Bot(commands.Bot):
         for channel in guild.text_channels:
             try:
                 await channel.send(f"Thank you for adding {self.bot.user.name}. Type `?help` for a full list of commands \n"
-                                  "Please consider giving feedback via the `?feedback` command - it's greatly appreciated :slight_smile:")
+                                    "Please consider giving feedback via the `?feedback` command - it's greatly appreciated :slight_smile:")
                 break
             except:
                 continue
