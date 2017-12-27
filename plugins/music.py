@@ -342,14 +342,14 @@ class Music:
                 await ctx.send("That page does not exist")
             else:
                 view = state.queue[offset:offset + 10]
-
-                #nowplaying_fmt = await self.get_now_playing_(ctx.guild)
+                view.insert(0, (None, state.now_playing))
+                # nowplaying_fmt = await self.get_now_playing_(ctx.guild)
                 s_fmt = "{0}. {1[1].title}"
                 song_queue_fmt = "\n".join([s_fmt.format(i + 1 + offset, s) for i, s in enumerate(view)])
 
-                queue_embed = discord.Embed(description="\n".join(["```", song_queue_fmt, "```"]))
+                queue_embed = discord.Embed(title="Song queue",
+                                            description="\n".join(["```css", song_queue_fmt, "```"]))
                 queue_embed.set_footer(text="Page {}/{}".format(page, pages))
-                queue_embed.set_thumbnail(url=state.now_playing.thumb)
                 await ctx.send(embed=queue_embed)
 
 
