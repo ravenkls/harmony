@@ -1,6 +1,9 @@
 from discord.ext import commands
 from PIL import Image
 from io import BytesIO
+from functools import partial
+from bs4 import BeautifulSoup
+from math import ceil
 import asyncio
 import discord
 import youtube_dl
@@ -8,11 +11,8 @@ import os
 import aiohttp
 import time
 import isodate
-from math import ceil
 import datetime
 import random
-from functools import partial
-from bs4 import BeautifulSoup
 
 if not discord.opus.is_loaded():
     discord.opus.load_opus('libopus.so')
@@ -114,13 +114,27 @@ class VoiceState:
         self.next_song = asyncio.Event()
         self.audio_player = self.bot.loop.create_task(self.audio_player_task())
         self.looping_queue = []
+        self.shuffled_queue = []
+        self.shuffle = False
         self.player = None
 
-    async def leave_task(self):
+    def reset(self):
+        self.now_playing = None
+        self.voice = None
+        self.song_started = 0
+        self.next_song.clear()
+        self.looping_queue = []
+        self.shuffled_queue = []
+        self.shuffle = False
+        self.player = None
+
+    async def leave_task(self, voice, ctx):
         await asyncio.sleep(120)
         if not self.is_playing():
             await self.voice.disconnect()
-            self.voice = None
+            await ctx.send("Thank you for using harmony's voice feature, "
+                           "feedback and suggestions would be "
+                           "appreciated!.")
 
     async def audio_player_task(self):
         while True:
@@ -129,13 +143,19 @@ class VoiceState:
             if len(self.queue) < 1:
                 if self.looping_queue:
                     self.queue = list(self.looping_queue)
+                    if self.shuffle:
+                        self.shuffled_queue = list(self.queue)
+                        random.shuffle(self.shuffled_queue)
                 else:
                     await self.now_playing.ctx.send("Queue concluded.")
-                    self.now_playing = None
-                    self.next_song.clear()
-                    self.bot.loop.create_task(self.leave_task())
+                    self.bot.loop.create_task(self.leave_task(self.voice, self.now_playing.ctx))
+                    self.reset()
                     continue
-            self.player, self.now_playing = self.queue.pop(0)
+            if self.shuffle:
+                self.player, self.now_playing = self.shuffled_queue.pop(0)
+                self.queue.remove((self.player, self.now_playing))
+            else:
+                self.player, self.now_playing = self.queue.pop(0)
             await self.now_playing.download()
             self.player(self.now_playing.source, after=self.toggle_next)
             self.song_started = time.time()
@@ -148,6 +168,16 @@ class VoiceState:
             self.looping_queue.insert(0, (self.player, self.now_playing))
         return len(self.looping_queue) > 0
 
+    def shuffle_queue(self):
+        if self.shuffle:
+            self.shuffle = False
+            self.shuffled_queue = []
+        else:
+            self.shuffle = True
+            self.shuffled_queue = list(self.queue)
+            random.shuffle(self.shuffled_queue)
+        return self.shuffle
+
     def skip(self):
         if self.is_playing():
             self.voice.stop()
@@ -156,16 +186,13 @@ class VoiceState:
     async def stop(self):
         if self.is_playing():
             await self.voice.disconnect()
-            self.queue = []
-            self.voice = None
-            self.now_playing = None
             return True
 
     def toggle_next(self, error):
         self.bot.loop.call_soon_threadsafe(self.next_song.set)
 
     def is_playing(self):
-        if self.voice is None or self.now_playing is None:
+        if self.voice is None:
             return False
 
         return self.voice.is_playing()
@@ -207,10 +234,10 @@ class Music:
             if ctx.author.voice.channel is not state.voice.channel:
                 await state.voice.move_to(ctx.author.voice.channel)
 
-        player = await YTDLSource.from_url(ctx, query)
-        state.queue.append((state.voice.play, player))
+        song = await YTDLSource.from_url(ctx, query)
+        state.queue.append((state.voice.play, song))
         if state.looping_queue:
-            state.looping_queue.append((state.voice.play, player))
+            state.looping_queue.append((state.voice.play, song))
 
         if state.now_playing is None:
             state.next_song.set()
@@ -218,7 +245,7 @@ class Music:
                 await asyncio.sleep(1)
             return await self.nowplaying.invoke(ctx)
 
-        await ctx.send(":minidisc: `{}` has been added to the queue at position `{}`".format(player.title, len(state.queue)))
+        await ctx.send(":minidisc: `{}` has been added to the queue at position `{}`".format(song.title, len(state.queue)))
 
     @commands.command()
     @commands.guild_only()
@@ -235,6 +262,57 @@ class Music:
             await ctx.send("Nothing is being played")
 
     @commands.command()
+    @commands.guild_only()
+    async def remove(self, ctx, position):
+        """Removes an item from the queue"""
+        state = self.get_voice_state(ctx.guild)
+        if len(state.queue) >= int(position):
+            if state.shuffle:
+                player, song = state.shuffled_queue.pop(int(position) - 1)
+                state.queue.remove((player, song))
+            else:
+                player, song = state.queue.pop(int(position) - 1)
+
+            if state.looping_queue:
+                state.looping_queue.remove((player, song))
+            await ctx.send(f"`{song.title}` has been removed from the list")
+        else:
+            await ctx.send("That position doesn't exist")
+
+    @commands.command()
+    @commands.guild_only()
+    async def move(self, ctx, old_position, new_position):
+        """Moves an item from one position to another in a queue"""
+        state = self.get_voice_state(ctx.guild)
+        if len(state.queue) >= int(old_position):
+            if len(state.queue) >= int(new_position):
+                if state.shuffle:
+                    player, song = state.shuffled_queue.pop(int(old_position) - 1)
+                    state.shuffled_queue.insert(int(new_position) - 1, (player, song))
+                else:
+                    player, song = state.queue.pop(int(old_position) - 1)
+                    state.queue.insert(int(new_position) - 1, (player, song))
+                await ctx.send(f"`{song.title}` has been moved from position `{old_position}` to `{new_position}`")
+            else:
+                await ctx.send(f"I can't move a song to a position that doesn't exist")
+        else:
+            await ctx.send("That position doesn't exist")
+
+    @commands.command()
+    @commands.guild_only()
+    async def shuffle(self, ctx):
+        """Shuffles the queue"""
+        state = self.get_voice_state(ctx.guild)
+        if state.is_playing():
+            shuffling = state.shuffle_queue()
+            if shuffling:
+                await ctx.send("The queue has been shuffled")
+            else:
+                await ctx.send("The queue has been unshuffled")
+        else:
+            await ctx.send("Nothing is being played")
+
+    @commands.command()
     async def lyrics(self, ctx, *, song):
         """Get the lyrics of a song (provided by azlyrics.com)"""
         async with aiohttp.ClientSession() as session:
@@ -243,17 +321,22 @@ class Music:
             text = await web.text()
         soup = BeautifulSoup(text, "html.parser")
         panels = soup.findAll("div", {"class": "panel"})
+        if not panels:
+            song_results = None
         for p in panels:
             if "Song results" in p.select_one(".panel-heading").text:
                 song_results = p
                 break
-        items = song_results.findAll("td", {"class": "text-left"})
-        results = []
-        for item in items[:5]:
-            anchor = item.select_one("a")
-            title, artist = item.findAll("b")[:2]
-            results.append(f"[{title.text} by {artist.text}]({anchor.get('href')})")
-        desc = "\n".join(f"**{n+1}.** {href}" for n, href in enumerate(results))
+        if not song_results:
+            desc = "Sorry, your search returned no results. Try to compose less restrictive search query or check spelling."
+        else:
+            items = song_results.findAll("td", {"class": "text-left"})
+            results = []
+            for item in items[:5]:
+                anchor = item.select_one("a")
+                title, artist = item.findAll("b")[:2]
+                results.append(f"[{title.text} by {artist.text}]({anchor.get('href')})")
+            desc = "\n".join(f"**{n+1}.** {href}" for n, href in enumerate(results))
         lyrics_embed = discord.Embed(description=desc, colour=0x9292C5)
         lyrics_embed.set_author(name="AZLyrics", icon_url="https://i.imgur.com/uGJZtDB.png")
         await ctx.send(embed=lyrics_embed)
@@ -299,6 +382,8 @@ class Music:
                                 icon_url=avatar)
             np_embed.set_footer(text=footer, icon_url="https://i.imgur.com/2CK3w4E.png")
             return np_embed
+        else:
+            return None
 
     @commands.command(aliases=["np"])
     @commands.guild_only()
@@ -331,21 +416,27 @@ class Music:
     @commands.command(aliases=["q", "list"], name="queue")
     @commands.guild_only()
     async def _queue(self, ctx, page: int=1):
-        """ Shows you the current music queue """
+        """Shows you the current music queue"""
         state = self.get_voice_state(ctx.guild)
-        if len(state.queue) < 1:
+        if state.shuffle:
+            current_queue = state.shuffled_queue
+        else:
+            current_queue = state.queue
+
+        if len(current_queue) < 1:
             await ctx.send("The queue is empty")
         else:
             offset = 10 * (page - 1)
-            pages = ceil(len(state.queue) / 10)
+            pages = ceil(len(current_queue) / 10)
             if page > pages or page < 0:
                 await ctx.send("That page does not exist")
             else:
-                view = state.queue[offset:offset + 10]
-                view.insert(0, (None, state.now_playing))
-                # nowplaying_fmt = await self.get_now_playing_(ctx.guild)
+                tmp_queue = list(current_queue)
+                tmp_queue.insert(0, (None, state.now_playing))
+                view = tmp_queue[offset:offset + 10]
                 s_fmt = "{0}. {1[1].title}"
-                song_queue_fmt = "\n".join([s_fmt.format(i + 1 + offset, s) for i, s in enumerate(view)])
+                song_queue_fmt = "\n".join([s_fmt.format(i + offset, s) for i, s in enumerate(view)])
+                song_queue_fmt = "NP:" + song_queue_fmt[2:]
 
                 queue_embed = discord.Embed(title="Song queue",
                                             description="\n".join(["```css", song_queue_fmt, "```"]))
