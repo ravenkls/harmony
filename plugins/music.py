@@ -7,7 +7,7 @@ from math import ceil
 import asyncio
 import discord
 import youtube_dl
-import os
+# import os
 import aiohttp
 import time
 import isodate
@@ -34,7 +34,7 @@ ytdl_format_options = {
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
-APIKEY = "AIzaSyCpTUiTsBy5dfgVVrmA9OFAbqU6fVkokMw"
+APIKEY = os.environ.get("YOUTUBE_API_KEY")
 
 
 async def search_yt(query):
@@ -130,10 +130,10 @@ class VoiceState:
 
     async def leave_task(self, voice, ctx):
         await asyncio.sleep(120)
-        if not voice.is_playing():
+        if not voice.is_playing() and self.now_playing is None:
             await voice.disconnect()
             await ctx.send("Thank you for using harmony's voice feature, "
-                           "feedback and suggestions would be "
+                           "`?feedback` and suggestions would be "
                            "appreciated!.")
 
     async def audio_player_task(self):
