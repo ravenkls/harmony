@@ -7,7 +7,7 @@ from math import ceil
 import asyncio
 import discord
 import youtube_dl
-# import os
+import os
 import aiohttp
 import time
 import isodate
