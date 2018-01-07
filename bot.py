@@ -79,8 +79,9 @@ class Bot(commands.Bot):
         await self.set_playing()
         for channel in guild.text_channels:
             try:
-                await channel.send(f"Thank you for adding {self.bot.user.name}. Type `?help` for a full list of commands \n"
-                                    "Please consider giving feedback via the `?feedback` command - it's greatly appreciated :slight_smile:")
+                await channel.send(f"Thank you for adding {self.bot.user.name}. Type `?help` for a full list of commands. "
+                                   f"Please consider upvoting the bot at https://discordbots.org/bot/{self.bot.user.id} if you "
+                                   f"like {self.bot.user.name} - it's greatly appreciated :slight_smile:")
                 break
             except:
                 continue
@@ -88,7 +89,7 @@ class Bot(commands.Bot):
     async def on_guild_remove(self, guild):
         await self.set_playing()
 
-    async def on_commandd_error(self, ctx, exception):
+    async def on_command_error(self, ctx, exception):
         if type(exception) == discord.ext.commands.errors.CommandNotFound:
             return
         error_embed = discord.Embed(colour=0xFF0000)

@@ -46,12 +46,15 @@ async def search_yt(query):
         web = await session.request("get", url, params=payload)
         resp = await web.json()
         if len(resp["items"]) > 0:
-            video = resp["items"][0]
-            video_id = video["id"] if type(video["id"]) == str else video["id"]["videoId"]
+            # Decode the JSON
+            video = resp.get("items")[0]
+            if isinstance(video.get("id"), str):
+                video_id = video["id"]
+            else:
+                video_id = video["id"]["videoId"]
+
             video["id"] = video_id
             return video
-        else:
-            return None
 
 
 class YTDLSource:
