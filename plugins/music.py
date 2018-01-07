@@ -222,6 +222,13 @@ class VoiceState:
             random.shuffle(self.shuffled_queue)
         return self.shuffle
 
+    def add_to_queue(self, value):
+        self.queue.append(value)
+        if self.shuffle:
+            self.shuffled_queue.append(value)
+        if self.looping_queue:
+            self.looping_queue.append(value)
+
     def skip(self):
         if self.is_playing():
             self.voice.stop()
@@ -290,7 +297,7 @@ class Music:
             artist = ", ".join(artist["name"] for artist in song["track"]["artists"])
             song = await YTDLSource.from_url(ctx, " ".join([name, "-", artist]))
             try:
-                state.queue.append((state.voice.play, song))
+                state.add_to_queue((state.voice.play, song))
             except AttributeError:
                 state.reset()
                 break
@@ -319,7 +326,7 @@ class Music:
                 await state.voice.move_to(ctx.author.voice.channel)
 
         song = await YTDLSource.from_url(ctx, query)
-        state.queue.append((state.voice.play, song))
+        state.add_to_queue((state.voice.play, song))
         if state.looping_queue:
             state.looping_queue.append((state.voice.play, song))
 
