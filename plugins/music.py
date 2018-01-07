@@ -39,9 +39,9 @@ ytdl_format_options = {
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
-YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
-SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
-SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
+YOUTUBE_API_KEY = "AIzaSyBu00hRPxVo-Wmy9P7QurRVpCv6k78SPdw"  # os.environ.get("YOUTUBE_API_KEY")
+SPOTIFY_CLIENT_ID = "ecc2282dceb24f34a115ccc3aa019b64"  # os.environ.get("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = "731fd188e7b54410b47a0c992e186a20"  # os.environ.get("SPOTIFY_CLIENT_SECRET")
 
 
 class SpotifyAPI:
@@ -279,6 +279,28 @@ class Music:
     async def spotify(self, ctx, *, query="Today's Top Hits"):
         """Adds a spotify playlist to the music queue by query or randomly"""
         state = self.get_voice_state(ctx.guild)
+
+        playlist_info = self.spotify_api.search_playlist_file(query)
+        playlist = self.spotify_api.get_spotify_playlist(playlist_info.get("uri"))
+
+        def check(reaction, user):
+            if user == ctx.author:
+                return str(reaction) in ("\U00002705", "\U0000274E")
+            return False
+
+        ask_message = await ctx.send(f"Should I add `{playlist.get('name')}` to the queue?")
+        await ask_message.add_reaction("\U00002705")  # cjeck mark
+        await ask_message.add_reaction("\U0000274E")  # cross mark
+        try:
+            reaction, user = await self.bot.wait_for("reaction_add", timeout=30.0, check=check)
+        except asyncio.TimeoutError:
+            await ask_message.delete()
+            return await ctx.send("User failed to respond in 30 seconds")
+        else:
+            await ask_message.delete()
+            if str(reaction) == "\U0000274E":  # cross mark
+                return
+
         if state.voice is None:
             if ctx.author.voice and ctx.author.voice.channel:
                 await self.create_voice_client(ctx.author.voice.channel)
@@ -288,9 +310,7 @@ class Music:
             if ctx.author.voice.channel is not state.voice.channel:
                 await state.voice.move_to(ctx.author.voice.channel)
 
-        playlist_info = self.spotify_api.search_playlist_file(query)
-        playlist = self.spotify_api.get_spotify_playlist(playlist_info.get("uri"))
-        unpacking_message = None
+        unpacking_message = await ctx.send(f"Unpacking `{playlist.get('name')}` playlist")
 
         for song in playlist["tracks"]["items"]:
             name = song["track"]["name"]
@@ -305,9 +325,6 @@ class Music:
                 state.looping_queue.append((state.voice.play, song))
             if state.now_playing is None:
                 state.next_song.set()
-
-            if unpacking_message is None:
-                unpacking_message = await ctx.send(f"Unpacking `{playlist.get('name')}` playlist")
 
         await unpacking_message.edit(content=f"`{playlist.get('name')}` has been unpacked into the queue")
 
@@ -530,7 +547,12 @@ class Music:
                                             description=state.now_playing.title,
                                             colour=self.bot.embed_colour())
                 queue_embed.add_field(name="Song queue", value=song_queue_fmt)
-                queue_embed.set_footer(text="Page {}/{}".format(page, pages))
+                footer_text = "Page {}/{}".format(page, pages)
+                if state.looping_queue:
+                    footer_text += " (Looping) "
+                if state.shuffle:
+                    footer_text += " (Shuffled) "
+                queue_embed.set_footer(text=footer_text)
                 await ctx.send(embed=queue_embed)
 
 

@@ -16,6 +16,7 @@ Harmony is a fully featured music bot created for Discord. It also features othe
 * Fully featured music integration
 * Crisp sounding audio
 * Very fast playback
+* Spotify playlist support (WIP)
 * More to be added
 
 <div align="center">

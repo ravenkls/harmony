@@ -98,7 +98,8 @@ class General:
                 response = await eval(code.replace("await ", ""))
             else:
                 response = eval(code)
-            await ctx.send("```python\n{}```".format(response))
+            if response is not None:
+                await ctx.send("```python\n{}```".format(response))
         except Exception as e:
             await ctx.send("```python\n{}```".format(e))
 
