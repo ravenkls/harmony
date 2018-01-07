@@ -62,7 +62,7 @@ class General:
     @commands.command()
     async def ping(self, ctx):
         """Pong!"""
-        diff = ctx.message.created_at - datetime.datetime.utcnow()
+        diff = datetime.datetime.utcnow() - ctx.message.created_at
         ms = int(diff.total_seconds() * 1000)
         await ctx.send(":ping_pong: `{}ms`".format(ms))
 
