@@ -89,7 +89,7 @@ class Bot(commands.Bot):
     async def on_guild_remove(self, guild):
         await self.set_playing()
 
-    async def on_command_error(self, ctx, exception):
+    async def on_command_edrror(self, ctx, exception):
         if type(exception) == discord.ext.commands.errors.CommandNotFound:
             return
         error_embed = discord.Embed(colour=0xFF0000)

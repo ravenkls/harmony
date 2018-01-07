@@ -4,6 +4,11 @@ from io import BytesIO
 from functools import partial
 from bs4 import BeautifulSoup
 from math import ceil
+from fuzzywuzzy import process
+from operator import itemgetter
+from spotipy.oauth2 import SpotifyClientCredentials
+import spotipy
+import json
 import asyncio
 import discord
 import youtube_dl
@@ -34,27 +39,42 @@ ytdl_format_options = {
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
-APIKEY = os.environ.get("YOUTUBE_API_KEY")
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
+SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
 
 
-async def search_yt(query):
-    """ Searches Youtube API v3 and returns video """
-    async with aiohttp.ClientSession() as session:
-        payload = {"maxResults": "1", "part": "snippet", "type": "video",
-                   "key": APIKEY, "q": query.replace(" ", "+")}
-        url = "https://www.googleapis.com/youtube/v3/search"
-        web = await session.request("get", url, params=payload)
-        resp = await web.json()
-        if len(resp["items"]) > 0:
-            # Decode the JSON
-            video = resp.get("items")[0]
-            if isinstance(video.get("id"), str):
-                video_id = video["id"]
-            else:
-                video_id = video["id"]["videoId"]
+class SpotifyAPI:
+    def __init__(self):
+        client_credentials_manager = SpotifyClientCredentials(client_id=SPOTIFY_CLIENT_ID,
+                                                              client_secret=SPOTIFY_CLIENT_SECRET)
+        self.spotify_api = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
 
-            video["id"] = video_id
-            return video
+    def get_spotify_playlist(self, uri):
+        user_id = uri.split(":")[2]
+        playlist_id = uri.split(":")[4]
+        playlist = self.spotify_api.user_playlist(user_id, playlist_id)
+        return playlist
+
+    def get_all_playlists(self, user_id):
+        response = {}
+        offset = 0
+
+        while len(response) % 50 == 0:
+            playlists = self.spotify_api.user_playlists(user_id, limit=50, offset=offset)
+            for playlist in playlists.get("items"):
+                response[playlist.get("name")] = playlist.get("uri")
+            offset += 50
+
+        return response
+
+    def search_playlist_file(self, query, file="playlists.json"):
+        with open(file) as playlists_file:
+            playlists = json.loads(playlists_file.read())
+
+        results = process.extract(query, playlists.keys())
+        top = max(results, key=itemgetter(1))
+        return {"name": top[0], "uri": playlists.get(top[0])}
 
 
 class YTDLSource:
@@ -71,7 +91,7 @@ class YTDLSource:
 
     async def get_author_avatar(self):
         with aiohttp.ClientSession() as session:
-            payload = {"id": self.channel_id, "part": "snippet", "key": APIKEY}
+            payload = {"id": self.channel_id, "part": "snippet", "key": YOUTUBE_API_KEY}
             url = "https://www.googleapis.com/youtube/v3/channels"
             web = await session.request("get", url, params=payload)
             resp = await web.json()
@@ -81,7 +101,7 @@ class YTDLSource:
 
     async def get_duration(self):
         with aiohttp.ClientSession() as session:
-            payload = {"id": self.video_id, "part": "contentDetails", "key": APIKEY}
+            payload = {"id": self.video_id, "part": "contentDetails", "key": YOUTUBE_API_KEY}
             url = "https://www.googleapis.com/youtube/v3/videos"
             web = await session.request("get", url, params=payload)
             resp = await web.json()
@@ -99,11 +119,31 @@ class YTDLSource:
 
     @classmethod
     async def from_url(cls, ctx, url):
-        data = await search_yt(url)
+        data = await cls.search_yt(url)
         video_id = data["id"]
         data = data["snippet"]
         data["id"] = video_id
         return cls(ctx, data)
+
+    @staticmethod
+    async def search_yt(query):
+        """ Searches Youtube API v3 and returns video """
+        async with aiohttp.ClientSession() as session:
+            payload = {"maxResults": "1", "part": "snippet", "type": "video",
+                       "key": YOUTUBE_API_KEY, "q": query.replace(" ", "+")}
+            url = "https://www.googleapis.com/youtube/v3/search"
+            web = await session.request("get", url, params=payload)
+            resp = await web.json()
+            if len(resp["items"]) > 0:
+                # Decode the JSON
+                video = resp.get("items")[0]
+                if isinstance(video.get("id"), str):
+                    video_id = video["id"]
+                else:
+                    video_id = video["id"]["videoId"]
+
+                video["id"] = video_id
+                return video
 
 
 class VoiceState:
@@ -126,6 +166,7 @@ class VoiceState:
         self.voice = None
         self.song_started = 0
         self.next_song.clear()
+        self.queue = []
         self.looping_queue = []
         self.shuffled_queue = []
         self.shuffle = False
@@ -189,6 +230,7 @@ class VoiceState:
     async def stop(self):
         if self.is_playing():
             await self.voice.disconnect()
+            self.reset()
             return True
 
     def toggle_next(self, error):
@@ -205,6 +247,7 @@ class Music:
     def __init__(self, bot):
         self.bot = bot
         self.voice_states = {}
+        self.spotify_api = SpotifyAPI()
 
     def get_voice_state(self, guild):
         state = self.voice_states.get(guild.id)
@@ -222,6 +265,44 @@ class Music:
             await voice.move_to(channel)
         state = self.get_voice_state(channel.guild)
         state.voice = voice
+        self.bot.log("Voice state created at {}".format(channel.guild.name), "MUSIC")
+
+    @commands.command()
+    @commands.guild_only()
+    async def spotify(self, ctx, *, query="Today's Top Hits"):
+        """Adds a spotify playlist to the music queue by query or randomly"""
+        state = self.get_voice_state(ctx.guild)
+        if state.voice is None:
+            if ctx.author.voice and ctx.author.voice.channel:
+                await self.create_voice_client(ctx.author.voice.channel)
+            else:
+                return await ctx.send("Not connected to a voice channel.")
+        else:
+            if ctx.author.voice.channel is not state.voice.channel:
+                await state.voice.move_to(ctx.author.voice.channel)
+
+        playlist_info = self.spotify_api.search_playlist_file(query)
+        playlist = self.spotify_api.get_spotify_playlist(playlist_info.get("uri"))
+        unpacking_message = None
+
+        for song in playlist["tracks"]["items"]:
+            name = song["track"]["name"]
+            artist = ", ".join(artist["name"] for artist in song["track"]["artists"])
+            song = await YTDLSource.from_url(ctx, " ".join([name, "-", artist]))
+            try:
+                state.queue.append((state.voice.play, song))
+            except AttributeError:
+                state.reset()
+                break
+            if state.looping_queue:
+                state.looping_queue.append((state.voice.play, song))
+            if state.now_playing is None:
+                state.next_song.set()
+
+            if unpacking_message is None:
+                unpacking_message = await ctx.send(f"Unpacking `{playlist.get('name')}` playlist")
+
+        await unpacking_message.edit(content=f"`{playlist.get('name')}` has been unpacked into the queue")
 
     @commands.command(aliases=["yt"])
     @commands.guild_only()
@@ -244,11 +325,9 @@ class Music:
 
         if state.now_playing is None:
             state.next_song.set()
-            while not state.is_playing():
-                await asyncio.sleep(1)
-            return await self.nowplaying.invoke(ctx)
+            return await ctx.send("Now playing `{}`".format(song.title))
 
-        await ctx.send(":minidisc: `{}` has been added to the queue at position `{}`".format(song.title, len(state.queue)))
+        await ctx.send("`{}` has been added to the queue at position `{}`".format(song.title, len(state.queue)))
 
     @commands.command()
     @commands.guild_only()
@@ -435,14 +514,15 @@ class Music:
                 await ctx.send("That page does not exist")
             else:
                 tmp_queue = list(current_queue)
-                tmp_queue.insert(0, (None, state.now_playing))
                 view = tmp_queue[offset:offset + 10]
-                s_fmt = "{0}. {1[1].title}"
-                song_queue_fmt = "\n".join([s_fmt.format(i + offset, s) for i, s in enumerate(view)])
-                song_queue_fmt = "NP:" + song_queue_fmt[2:]
 
-                queue_embed = discord.Embed(title="Song queue",
-                                            description="\n".join(["```css", song_queue_fmt, "```"]))
+                s_fmt = "**{0}.** {1[1].title}"
+                song_queue_fmt = "\n".join([s_fmt.format(i + 1 + offset, s) for i, s in enumerate(view)])
+
+                queue_embed = discord.Embed(title="Now Playing",
+                                            description=state.now_playing.title,
+                                            colour=self.bot.embed_colour())
+                queue_embed.add_field(name="Song queue", value=song_queue_fmt)
                 queue_embed.set_footer(text="Page {}/{}".format(page, pages))
                 await ctx.send(embed=queue_embed)
 
