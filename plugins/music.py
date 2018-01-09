@@ -39,9 +39,9 @@ ytdl_format_options = {
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
-YOUTUBE_API_KEY = "AIzaSyBu00hRPxVo-Wmy9P7QurRVpCv6k78SPdw"  # os.environ.get("YOUTUBE_API_KEY")
-SPOTIFY_CLIENT_ID = "ecc2282dceb24f34a115ccc3aa019b64"  # os.environ.get("SPOTIFY_CLIENT_ID")
-SPOTIFY_CLIENT_SECRET = "731fd188e7b54410b47a0c992e186a20"  # os.environ.get("SPOTIFY_CLIENT_SECRET")
+YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
+SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
+SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
 
 
 class SpotifyAPI:
