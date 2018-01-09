@@ -79,7 +79,7 @@ class Bot(commands.Bot):
         await self.change_presence(game=discord.Game(name=f"on {guilds} guilds"))
         with aiohttp.ClientSession() as session:
             url = f"https://discordbots.org/api/bots/{self.user.id}/stats"
-            await session.post(url, params={"server_count": guilds},
+            await session.post(url, data={"server_count": guilds},
                                headers={"Authorization": DISCORDBOTS_API})
 
     async def on_guild_join(self, guild):
