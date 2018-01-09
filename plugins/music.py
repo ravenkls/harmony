@@ -165,12 +165,10 @@ class VoiceState:
         self.now_playing = None
         self.voice = None
         self.song_started = 0
-        self.next_song.clear()
         self.queue = []
         self.looping_queue = []
         self.shuffled_queue = []
         self.shuffle = False
-        self.player = None
 
     async def leave_task(self, voice, ctx):
         await asyncio.sleep(120)
@@ -193,7 +191,6 @@ class VoiceState:
                 else:
                     await self.now_playing.ctx.send("Queue concluded.")
                     self.bot.loop.create_task(self.leave_task(self.voice, self.now_playing.ctx))
-                    self.reset()
                     continue
             if self.shuffle:
                 self.player, self.now_playing = self.shuffled_queue.pop(0)
