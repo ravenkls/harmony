@@ -176,7 +176,7 @@ class VoiceState:
         if not voice.is_playing() and self.now_playing is None:
             await voice.disconnect()
             await ctx.send("Thank you for using harmony's voice feature, "
-                           "`?feedback` and suggestions would be "
+                           f"`{self.bot.prefix}feedback` and suggestions would be "
                            "appreciated!.")
 
     async def audio_player_task(self):
