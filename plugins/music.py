@@ -163,6 +163,7 @@ class VoiceState:
 
     def reset(self):
         self.now_playing = None
+        self.player = None
         self.voice = None
         self.song_started = 0
         self.queue = []
@@ -526,7 +527,7 @@ class Music:
         else:
             current_queue = state.queue
 
-        if len(current_queue) < 1:
+        if len(state.queue) < 1:
             await ctx.send("The queue is empty")
         else:
             offset = 10 * (page - 1)
