@@ -24,7 +24,7 @@ class Bot(commands.Bot):
         super().__init__(command_prefix=self.get_prefixes, *args, **kwargs)
 
     def get_prefixes(self, bot, message):
-        return [self.prefix, f"<@{self.user.id}>"]
+        return [self.prefix, f"<@{self.user.id}> "]
 
     def get_usage(self, command):
         args_spec = inspect.getfullargspec(command.callback)  # Get arguments of command
@@ -91,9 +91,9 @@ class Bot(commands.Bot):
             try:
                 print("send?")
                 print(channel.name)
-                await channel.send(f"Thank you for adding {self.bot.user.name}. Type `{self.prefix}help` for a full list of commands.\n"
-                                   f"Please consider upvoting the bot at https://discordbots.org/bot/{self.bot.user.id} if you "
-                                   f"like {self.bot.user.name} - it's greatly appreciated :slight_smile:")
+                await channel.send(f"Thank you for adding {self.user.name}. Type `{self.prefix}help` for a full list of commands.\n"
+                                   f"Please consider upvoting the bot at https://discordbots.org/bot/{self.user.id} if you "
+                                   f"like {self.user.name} - it's greatly appreciated :slight_smile:")
                 break
             except discord.Forbidden as e:
                 print(e)
