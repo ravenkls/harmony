@@ -17,11 +17,14 @@ class Bot(commands.Bot):
         # "plugins.permissions"
     ]
 
-    def __init__(self, command_prefix, *args, **kwargs):
+    def __init__(self, command_symbol: str, *args, **kwargs):
         self.log("Initialising")
-        super().__init__(command_prefix, *args, **kwargs)
+        self.prefix = command_symbol
         self.embed_colour = lambda: 0x19868A
-        self.prefix = command_prefix
+        super().__init__(self.get_prefixes, *args, **kwargs)
+
+    def get_prefixes(self):
+        return [self.prefix, f"<@{self.user.id}>"]
 
     def get_usage(self, command):
         args_spec = inspect.getfullargspec(command.callback)  # Get arguments of command
@@ -86,11 +89,11 @@ class Bot(commands.Bot):
         await self.set_playing()
         for channel in guild.text_channels:
             try:
-                await channel.send(f"Thank you for adding {self.bot.user.name}. Type `?help` for a full list of commands. "
+                await channel.send(f"Thank you for adding {self.bot.user.name}. Type `?help` for a full list of commands.\n"
                                    f"Please consider upvoting the bot at https://discordbots.org/bot/{self.bot.user.id} if you "
                                    f"like {self.bot.user.name} - it's greatly appreciated :slight_smile:")
                 break
-            except:
+            except discord.Forbidden:
                 continue
 
     async def on_guild_remove(self, guild):
