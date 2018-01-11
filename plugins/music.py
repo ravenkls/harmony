@@ -323,6 +323,7 @@ class Music:
                 state.looping_queue.append((state.voice.play, song))
             if not state.is_playing():
                 state.next_song.set()
+                await ctx.send("Now playing `{}`".format(song.title))
 
         await unpacking_message.edit(content=f"`{playlist.get('name')}` has been unpacked into the queue")
 
@@ -345,7 +346,7 @@ class Music:
         if state.looping_queue:
             state.looping_queue.append((state.voice.play, song))
 
-        if state.now_playing is None:
+        if not state.is_playing():
             state.next_song.set()
             return await ctx.send("Now playing `{}`".format(song.title))
 

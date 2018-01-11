@@ -8,13 +8,10 @@ import datetime
 
 
 class General:
-    init_at = None
-
     def __init__(self, bot):
         self.bot = bot
         self.bot.remove_command("help")
-        if self.init_at is None:
-            self.init_at = datetime.datetime.utcnow()
+        self.bot.init_at = datetime.datetime.utcnow()
 
     @commands.command(aliases=["h"])
     async def help(self, ctx, cmd=None):
@@ -69,13 +66,13 @@ class General:
     @commands.command(description="Shows how long I've been online for")
     async def uptime(self, ctx):
         """ How long the bot has been online for (since commands plugin was initialized) """
-        uptime = datetime.datetime.utcnow() - self.init_at
+        uptime = datetime.datetime.utcnow() - self.bot.init_at
         s = uptime.total_seconds()
         m, s = divmod(s, 60)
         h, m = divmod(m, 60)
         d, h = divmod(h, 24)
         d, h, m, s = map(int, (d, h, m, s))
-        uptime_embed = discord.Embed(description=f":clock5:  **Ive been online for: ** {d}d {h}h {m}m {s}s", colour=self.bot.embed_colour())
+        uptime_embed = discord.Embed(description=f":clock5:  **Ive been online for:**  {d}d {h}h {m}m {s}s", colour=self.bot.embed_colour())
         await ctx.send(embed=uptime_embed)
 
     @commands.command(hidden=True)
