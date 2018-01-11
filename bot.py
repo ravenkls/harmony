@@ -23,7 +23,7 @@ class Bot(commands.Bot):
         self.embed_colour = lambda: 0x19868A
         super().__init__(command_prefix=self.get_prefixes, *args, **kwargs)
 
-    def get_prefixes(self, bot):
+    def get_prefixes(self, bot, message):
         return [self.prefix, f"<@{self.user.id}>"]
 
     def get_usage(self, command):
@@ -89,12 +89,14 @@ class Bot(commands.Bot):
         await self.set_playing()
         for channel in guild.text_channels:
             try:
+                print("send?")
+                print(channel.name)
                 await channel.send(f"Thank you for adding {self.bot.user.name}. Type `{self.prefix}help` for a full list of commands.\n"
                                    f"Please consider upvoting the bot at https://discordbots.org/bot/{self.bot.user.id} if you "
                                    f"like {self.bot.user.name} - it's greatly appreciated :slight_smile:")
                 break
-            except discord.Forbidden:
-                continue
+            except discord.Forbidden as e:
+                print(e)
 
     async def on_guild_remove(self, guild):
         await self.set_playing()
