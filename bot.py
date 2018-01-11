@@ -24,7 +24,7 @@ class Bot(commands.Bot):
         super().__init__(command_prefix=self.get_prefixes, *args, **kwargs)
 
     def get_prefixes(self, bot, message):
-        return [self.prefix, f"<@{self.user.id}> "]
+        return [self.prefix, f"<@{self.user.id}> ", f"<@!{self.user.id}> "]
 
     def get_usage(self, command):
         args_spec = inspect.getfullargspec(command.callback)  # Get arguments of command
