@@ -11,7 +11,8 @@ class General:
     def __init__(self, bot):
         self.bot = bot
         self.bot.remove_command("help")
-        self.bot.init_at = datetime.datetime.utcnow()
+        if not hasattr(self.bot, "init_at"):
+            self.bot.init_at = datetime.datetime.utcnow()
 
     @commands.command(aliases=["h"])
     async def help(self, ctx, cmd=None):
