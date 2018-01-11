@@ -19,7 +19,7 @@ class General:
         """ Shows you a list of commands """
         if cmd is None:
             help_embed = discord.Embed(title="Commands are listed below", colour=self.bot.embed_colour())
-            help_embed.__setattr__(f"description", "Type `{self.bot.prefix}help <command>` for more information")
+            help_embed.__setattr__("description", f"Type `{self.bot.prefix}help <command>` for more information")
             help_embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.avatar_url)
             help_embed.set_thumbnail(url=self.bot.user.avatar_url)
             for cog in self.bot.cogs:

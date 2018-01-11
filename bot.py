@@ -79,7 +79,7 @@ class Bot(commands.Bot):
 
     async def set_playing(self):
         guilds = sum(1 for _ in self.guilds)
-        await self.change_presence(game=discord.Game(name=f"on {guilds} guilds"))
+        await self.change_presence(game=discord.Game(name=f"on {guilds} guilds | {self.prefix}help"))
         with aiohttp.ClientSession() as session:
             url = f"https://discordbots.org/api/bots/{self.user.id}/stats"
             await session.post(url, data={"server_count": guilds},
@@ -89,14 +89,12 @@ class Bot(commands.Bot):
         await self.set_playing()
         for channel in guild.text_channels:
             try:
-                print("send?")
-                print(channel.name)
                 await channel.send(f"Thank you for adding {self.user.name}. Type `{self.prefix}help` for a full list of commands.\n"
                                    f"Please consider upvoting the bot at https://discordbots.org/bot/{self.user.id} if you "
                                    f"like {self.user.name} - it's greatly appreciated :slight_smile:")
                 break
             except discord.Forbidden as e:
-                print(e)
+                pass
 
     async def on_guild_remove(self, guild):
         await self.set_playing()
