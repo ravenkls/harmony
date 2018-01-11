@@ -187,7 +187,7 @@ class VoiceState:
                 if self.looping_queue:
                     self.queue = list(self.looping_queue)
                     if self.shuffle:
-                        self.shuffled_queue = list(self.queue)
+                        self.shudffled_queue = list(self.queue)
                         random.shuffle(self.shuffled_queue)
                 else:
                     await self.now_playing.ctx.send("Queue concluded.")
@@ -321,7 +321,7 @@ class Music:
                 break
             if state.looping_queue:
                 state.looping_queue.append((state.voice.play, song))
-            if state.now_playing is None:
+            if not state.is_playing():
                 state.next_song.set()
 
         await unpacking_message.edit(content=f"`{playlist.get('name')}` has been unpacked into the queue")
