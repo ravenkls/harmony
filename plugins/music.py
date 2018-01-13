@@ -269,11 +269,11 @@ class Music:
     @commands.command()
     @commands.is_owner()
     async def musicstates(self, ctx):
-        response = f"**{len(self.voice_states)} guilds are using voice**"
-        for guild_id, state in self.voice_states.items():
+        states = dict(filter(lambda s: s[1].now_playing, self.voice_states.items()))
+        response = f"**{len(states)} guilds are using voice**"
+        for guild_id, state in states.items():
             guild = self.bot.get_guild(guild_id)
-            if state.now_playing:
-                response += f"\n* {guild.name} - {state.now_playing.title}"
+            response += f"\n* {guild.name} - {state.now_playing.title}"
         await ctx.send(response)
 
     @commands.command()
