@@ -230,7 +230,6 @@ class VoiceState:
     async def stop(self):
         if self.is_playing():
             await self.voice.disconnect()
-            self.reset()
             return True
 
     def toggle_next(self, error):
