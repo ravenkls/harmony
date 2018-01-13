@@ -274,7 +274,7 @@ class Music:
 
     @commands.command()
     @commands.is_owner()
-    def musicstates(self, ctx):
+    async def musicstates(self, ctx):
         response = f"**{len(self.voice_states)} guilds are using voice**"
         for guild_id, state in self.voice_states.items():
             guild = self.bot.get_guild(guild_id)
