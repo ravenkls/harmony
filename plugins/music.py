@@ -273,6 +273,16 @@ class Music:
         self.bot.log("Voice state created at {}".format(channel.guild.name), "MUSIC")
 
     @commands.command()
+    @commands.is_owner()
+    def musicstates(self, ctx):
+        response = f"**{len(self.voice_states)} guilds are using voice**"
+        for guild_id, state in self.voice_states.items():
+            guild = self.bot.get_guild(guild_id)
+            if state.now_playing:
+                response += f"\n* {guild.name} - {state.now_playing.title}"
+        await ctx.send(response)
+
+    @commands.command()
     @commands.guild_only()
     async def spotify(self, ctx, *, query="Today's Top Hits"):
         """Adds a spotify playlist to the music queue by query or randomly"""
