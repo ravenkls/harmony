@@ -112,8 +112,9 @@ class YTDLSource:
     async def download(self, loop=None):
         self.info = ytdl.extract_info(self.video_id, download=False)
         self.streaming_url = self.info.get("url")
-        await self.get_duration()
-        await self.get_author_avatar()
+        duration = await self.get_duration()
+        avatar = await self.get_author_avatar()
+        self.avatar_average_colour = await Music.get_average_colour(avatar)
 
     @property
     def source(self):
@@ -266,7 +267,7 @@ class VoiceState:
             slider = "".join(seeker)
             footer = f"{string_current} / {string_duration} - {str(self.now_playing.requester)}"
             avatar = self.now_playing.author_avatar
-            avg_colour = self.bot.loop.run_until_complete(Music.get_average_colour(avatar))
+            avg_colour = self.now_playing.avatar_average_colour
             np_embed = discord.Embed(colour=discord.Colour.from_rgb(*avg_colour), title=slider)
             np_embed.set_author(name=self.now_playing.title,
                                 url=f"https://www.youtube.com/watch?v={self.now_playing.video_id}",
