@@ -175,8 +175,8 @@ class VoiceState:
     async def audio_player_task(self):
         while True:
             await self.next_song.wait()
-                        self.get_now_playing_embed.cache_clear()
             self.next_song.clear()
+            self.get_now_playing_embed.cache_clear()
             if len(self.queue) < 1:
                 if self.looping_queue:
                     self.queue = list(self.looping_queue)
