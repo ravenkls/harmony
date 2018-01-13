@@ -112,6 +112,8 @@ class YTDLSource:
     async def download(self, loop=None):
         self.info = ytdl.extract_info(self.video_id, download=False)
         self.streaming_url = self.info.get("url")
+        await self.get_duration()
+        await self.get_author_avatar()
 
     @property
     def source(self):
@@ -243,9 +245,9 @@ class VoiceState:
         return self.voice.is_playing()
 
     @lru_cache(maxsize=1)
-    async def get_now_playing_embed(self):
+    def get_now_playing_embed(self):
         if self.is_playing():
-            duration = self.now_playing.duration or await self.now_playing.get_duration()
+            duration = self.now_playing.duration
             current_time = time.time() - self.song_started
             percent = current_time / duration
             seeker_index = ceil(percent * 30)
@@ -263,8 +265,8 @@ class VoiceState:
 
             slider = "".join(seeker)
             footer = f"{string_current} / {string_duration} - {str(self.now_playing.requester)}"
-            avatar = self.now_playing.author_avatar or await self.now_playing.get_author_avatar()
-            avg_colour = await Music.get_average_colour(avatar)
+            avatar = self.now_playing.author_avatar
+            avg_colour = self.bot.loop.run_until_complete(Music.get_average_colour(avatar))
             np_embed = discord.Embed(colour=discord.Colour.from_rgb(*avg_colour), title=slider)
             np_embed.set_author(name=self.now_playing.title,
                                 url=f"https://www.youtube.com/watch?v={self.now_playing.video_id}",
@@ -502,7 +504,7 @@ class Music:
         """ Shows you the currently playing song """
         state = self.get_voice_state(ctx.guild)
         if state.is_playing():
-            np_embed = await state.get_now_playing_embed()
+            np_embed = state.get_now_playing_embed()
             state.now_playing_message = await ctx.send(embed=np_embed)
         else:
             await ctx.send("Nothing is being played")
