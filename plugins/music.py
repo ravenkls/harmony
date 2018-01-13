@@ -160,6 +160,7 @@ class VoiceState:
         self.shuffled_queue = []
         self.shuffle = False
         self.player = None
+        self.leave_task_ctx = None
 
     def reset(self):
         self.now_playing = None
@@ -170,14 +171,6 @@ class VoiceState:
         self.looping_queue = []
         self.shuffled_queue = []
         self.shuffle = False
-
-    async def leave_task(self, voice, ctx):
-        await asyncio.sleep(120)
-        if self.now_playing is None:
-            await self.stop()
-            await ctx.send("Thank you for using harmony's voice feature, "
-                           f"`{self.bot.prefix}feedback` and suggestions would be "
-                           "appreciated!.")
 
     async def audio_player_task(self):
         while True:
@@ -191,7 +184,9 @@ class VoiceState:
                         random.shuffle(self.shuffled_queue)
                 else:
                     await self.now_playing.ctx.send("Queue concluded.")
-                    self.bot.loop.create_task(self.leave_task(self.voice, self.now_playing.ctx))
+                    if self.voice:
+                        await self.voice.disconnect()
+                        self.reset()
                     continue
             if self.shuffle:
                 self.player, self.now_playing = self.shuffled_queue.pop(0)
