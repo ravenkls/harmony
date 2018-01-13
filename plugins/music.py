@@ -502,7 +502,7 @@ class Music:
         """ Shows you the currently playing song """
         state = self.get_voice_state(ctx.guild)
         if state.is_playing():
-            np_embed = await state.get_now_playing_embed(ctx.guild)
+            np_embed = await state.get_now_playing_embed()
             state.now_playing_message = await ctx.send(embed=np_embed)
         else:
             await ctx.send("Nothing is being played")
