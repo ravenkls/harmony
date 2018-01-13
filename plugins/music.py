@@ -173,8 +173,8 @@ class VoiceState:
 
     async def leave_task(self, voice, ctx):
         await asyncio.sleep(120)
-        if not voice.is_playing() and self.now_playing is None:
-            await voice.disconnect()
+        if self.now_playing is None:
+            await self.stop()
             await ctx.send("Thank you for using harmony's voice feature, "
                            f"`{self.bot.prefix}feedback` and suggestions would be "
                            "appreciated!.")
