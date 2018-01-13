@@ -1,7 +1,7 @@
 from discord.ext import commands
 from PIL import Image
 from io import BytesIO
-from functools import partial
+from functools import partial, lru_cache
 from bs4 import BeautifulSoup
 from math import ceil
 from fuzzywuzzy import process
@@ -175,6 +175,7 @@ class VoiceState:
     async def audio_player_task(self):
         while True:
             await self.next_song.wait()
+                        self.get_now_playing_embed.cache_clear()
             self.next_song.clear()
             if len(self.queue) < 1:
                 if self.looping_queue:
@@ -240,6 +241,38 @@ class VoiceState:
             return False
 
         return self.voice.is_playing()
+
+    @lru_cache(maxsize=1)
+    async def get_now_playing_embed(self):
+        if self.is_playing():
+            duration = self.now_playing.duration or await self.now_playing.get_duration()
+            current_time = time.time() - self.song_started
+            percent = current_time / duration
+            seeker_index = ceil(percent * 30)
+
+            minutes, seconds = divmod(duration, 60)
+            hours, minutes = divmod(minutes, 60)
+            string_duration = datetime.time(*map(int, [hours, minutes, seconds])).strftime("%M:%S")
+
+            minutes, seconds = divmod(current_time, 60)
+            hours, minutes = divmod(minutes, 60)
+            string_current = datetime.time(*map(int, [hours, minutes, seconds])).strftime("%M:%S")
+
+            seeker = ["▬"] * 30
+            seeker.insert(seeker_index - 1, "🔘")
+
+            slider = "".join(seeker)
+            footer = f"{string_current} / {string_duration} - {str(self.now_playing.requester)}"
+            avatar = self.now_playing.author_avatar or await self.now_playing.get_author_avatar()
+            avg_colour = await Music.get_average_colour(avatar)
+            np_embed = discord.Embed(colour=discord.Colour.from_rgb(*avg_colour), title=slider)
+            np_embed.set_author(name=self.now_playing.title,
+                                url=f"https://www.youtube.com/watch?v={self.now_playing.video_id}",
+                                icon_url=avatar)
+            np_embed.set_footer(text=footer, icon_url="https://i.imgur.com/2CK3w4E.png")
+            return np_embed
+        else:
+            return None
 
 
 class Music:
@@ -450,7 +483,8 @@ class Music:
         lyrics_embed.set_author(name="AZLyrics", icon_url="https://i.imgur.com/uGJZtDB.png")
         await ctx.send(embed=lyrics_embed)
 
-    async def get_average_colour(self, image_url):
+    @staticmethod
+    async def get_average_colour(image_url):
         async with aiohttp.ClientSession() as session:
             response = await session.get(image_url)
             image_bytes = await response.read()
@@ -462,45 +496,13 @@ class Music:
         most_frequent = max(light_pixels, key=lambda x: x[0])
         return most_frequent[1]
 
-    async def get_now_playing_embed(self, guild):
-        state = self.get_voice_state(guild)
-        if state.is_playing():
-            duration = state.now_playing.duration or await state.now_playing.get_duration()
-            current_time = time.time() - state.song_started
-            percent = current_time / duration
-            seeker_index = ceil(percent * 30)
-
-            minutes, seconds = divmod(duration, 60)
-            hours, minutes = divmod(minutes, 60)
-            string_duration = datetime.time(*map(int, [hours, minutes, seconds])).strftime("%M:%S")
-
-            minutes, seconds = divmod(current_time, 60)
-            hours, minutes = divmod(minutes, 60)
-            string_current = datetime.time(*map(int, [hours, minutes, seconds])).strftime("%M:%S")
-
-            seeker = ["▬"] * 30
-            seeker.insert(seeker_index - 1, "🔘")
-
-            slider = "".join(seeker)
-            footer = f"{string_current} / {string_duration} - {str(state.now_playing.requester)}"
-            avatar = state.now_playing.author_avatar or await state.now_playing.get_author_avatar()
-            avg_colour = await self.get_average_colour(avatar)
-            np_embed = discord.Embed(colour=discord.Colour.from_rgb(*avg_colour), title=slider)
-            np_embed.set_author(name=state.now_playing.title,
-                                url=f"https://www.youtube.com/watch?v={state.now_playing.video_id}",
-                                icon_url=avatar)
-            np_embed.set_footer(text=footer, icon_url="https://i.imgur.com/2CK3w4E.png")
-            return np_embed
-        else:
-            return None
-
     @commands.command(aliases=["np"])
     @commands.guild_only()
     async def nowplaying(self, ctx):
         """ Shows you the currently playing song """
         state = self.get_voice_state(ctx.guild)
         if state.is_playing():
-            np_embed = await self.get_now_playing_embed(ctx.guild)
+            np_embed = await state.get_now_playing_embed(ctx.guild)
             state.now_playing_message = await ctx.send(embed=np_embed)
         else:
             await ctx.send("Nothing is being played")
