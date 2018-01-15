@@ -47,7 +47,7 @@ class General:
                 await ctx.send(embed=help_embed)
 
     @commands.command()
-    @commands.cooldown(rate=2, per=43200, type=BucketType.user)
+    @commands.cooldown(rate=2, per=1200, type=BucketType.user)
     async def feedback(self, ctx, *, message):
         """Give me feedback on the bot. Feel free to give any suggestions!"""
         feedback_embed = discord.Embed(description=message)
