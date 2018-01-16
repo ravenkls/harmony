@@ -233,10 +233,10 @@ class VoiceState:
 
     async def stop(self):
         if self.is_playing():
+            await self.voice.disconnect()
             self.queue = []
             self.looping_queue = []
             self.shuffled_queue = []
-            await self.voice.disconnect()
             return True
 
     def toggle_next(self, error):
