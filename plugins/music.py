@@ -187,13 +187,10 @@ class VoiceState:
                         self.shudffled_queue = list(self.queue)
                         random.shuffle(self.shuffled_queue)
                 else:
-                    try:
-                        await self.now_playing.ctx.send("Queue concluded.")
-                        if self.voice:
-                            await self.voice.disconnect()
-                    except:
-                        pass
-                    self.reset()
+                    await self.now_playing.ctx.send("Queue concluded.")
+                    if self.voice:
+                        await self.voice.disconnect()
+                        self.reset()
                     continue
             if self.shuffle:
                 self.player, self.now_playing = self.shuffled_queue.pop(0)
@@ -223,14 +220,11 @@ class VoiceState:
         return self.shuffle
 
     def add_to_queue(self, value):
-        if self.voice.is_connected():
-            self.queue.append(value)
-            if self.shuffle:
-                self.shuffled_queue.append(value)
-            if self.looping_queue:
-                self.looping_queue.append(value)
-        else:
-            raise AttributeError("Can't add item to unexisting queue")
+        self.queue.append(value)
+        if self.shuffle:
+            self.shuffled_queue.append(value)
+        if self.looping_queue:
+            self.looping_queue.append(value)
 
     def skip(self):
         if self.is_playing():
@@ -240,7 +234,6 @@ class VoiceState:
     async def stop(self):
         if self.is_playing():
             await self.voice.disconnect()
-            self.reset()
             return True
 
     def toggle_next(self, error):
