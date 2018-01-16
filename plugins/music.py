@@ -316,6 +316,7 @@ class Music:
     @commands.guild_only()
     async def spotify(self, ctx, *, query="Today's Top Hits"):
         """Adds a spotify playlist to the music queue by query or randomly"""
+        ask_message = await ctx.send(f"Searching spotify for `{query}`...")
         state = self.get_voice_state(ctx.guild)
 
         playlist_info = self.spotify_api.search_playlist_file(query)
@@ -326,7 +327,7 @@ class Music:
                 return str(reaction) in ("\U00002705", "\U0000274E")
             return False
 
-        ask_message = await ctx.send(f"Should I add `{playlist.get('name')}` to the queue?")
+        await ask_message.edit(content=f"Should I add `{playlist.get('name')}` to the queue?")
         await ask_message.add_reaction("\U00002705")  # cjeck mark
         await ask_message.add_reaction("\U0000274E")  # cross mark
         try:
