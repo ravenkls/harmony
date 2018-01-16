@@ -179,6 +179,11 @@ class VoiceState:
         while True:
             await self.next_song.wait()
             self.next_song.clear()
+            if not self.voice.is_connected():
+                self.queue = []
+                self.looping_queue = []
+                self.shuffled_queue = []
+                self.shuffle = False
             self.get_now_playing_embed.cache_clear()
             if len(self.queue) < 1:
                 if self.looping_queue:
