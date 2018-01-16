@@ -190,7 +190,7 @@ class VoiceState:
                     await self.now_playing.ctx.send("Queue concluded.")
                     if self.voice:
                         await self.voice.disconnect()
-                    self.reset()
+                        self.reset()
                     continue
             if self.shuffle:
                 self.player, self.now_playing = self.shuffled_queue.pop(0)
@@ -305,7 +305,7 @@ class Music:
     @commands.command()
     @commands.is_owner()
     async def musicstates(self, ctx):
-        states = dict(filter(lambda s: s[1].now_playing, self.voice_states.items()))
+        states = dict(filter(lambda s: s[1].is_playing(), self.voice_states.items()))
         response = f"**{len(states)} guilds are using voice**"
         for guild_id, state in states.items():
             guild = self.bot.get_guild(guild_id)
