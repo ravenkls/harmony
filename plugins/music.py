@@ -190,7 +190,7 @@ class VoiceState:
                     await self.now_playing.ctx.send("Queue concluded.")
                     if self.voice:
                         await self.voice.disconnect()
-                        self.reset()
+                    self.reset()
                     continue
             if self.shuffle:
                 self.player, self.now_playing = self.shuffled_queue.pop(0)
