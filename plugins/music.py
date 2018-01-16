@@ -179,11 +179,6 @@ class VoiceState:
         while True:
             await self.next_song.wait()
             self.next_song.clear()
-            if not self.voice.is_connected():
-                self.queue = []
-                self.looping_queue = []
-                self.shuffled_queue = []
-                self.shuffle = False
             self.get_now_playing_embed.cache_clear()
             if len(self.queue) < 1:
                 if self.looping_queue:
@@ -195,7 +190,7 @@ class VoiceState:
                     await self.now_playing.ctx.send("Queue concluded.")
                     if self.voice:
                         await self.voice.disconnect()
-                        self.reset()
+                    self.reset()
                     continue
             if self.shuffle:
                 self.player, self.now_playing = self.shuffled_queue.pop(0)
@@ -238,6 +233,9 @@ class VoiceState:
 
     async def stop(self):
         if self.is_playing():
+            self.queue = []
+            self.looping_queue = []
+            self.shuffled_queue = []
             await self.voice.disconnect()
             return True
 
