@@ -220,11 +220,14 @@ class VoiceState:
         return self.shuffle
 
     def add_to_queue(self, value):
-        self.queue.append(value)
-        if self.shuffle:
-            self.shuffled_queue.append(value)
-        if self.looping_queue:
-            self.looping_queue.append(value)
+        if self.voice.is_connected():
+            self.queue.append(value)
+            if self.shuffle:
+                self.shuffled_queue.append(value)
+            if self.looping_queue:
+                self.looping_queue.append(value)
+        else:
+            raise AttributeError("Can't add item to unexisting queue")
 
     def skip(self):
         if self.is_playing():
