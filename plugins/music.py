@@ -187,9 +187,12 @@ class VoiceState:
                         self.shudffled_queue = list(self.queue)
                         random.shuffle(self.shuffled_queue)
                 else:
-                    await self.now_playing.ctx.send("Queue concluded.")
-                    if self.voice:
-                        await self.voice.disconnect()
+                    try:
+                        await self.now_playing.ctx.send("Queue concluded.")
+                        if self.voice:
+                            await self.voice.disconnect()
+                    except:
+                        pass
                     self.reset()
                     continue
             if self.shuffle:
@@ -237,9 +240,7 @@ class VoiceState:
     async def stop(self):
         if self.is_playing():
             await self.voice.disconnect()
-            self.queue = []
-            self.looping_queue = []
-            self.shuffled_queue = []
+            self.reset()
             return True
 
     def toggle_next(self, error):
