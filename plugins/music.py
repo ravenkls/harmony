@@ -218,6 +218,8 @@ class VoiceState:
             self.shuffled_queue.append(value)
         if self.looping_queue:
             self.looping_queue.append(value)
+        if not self.is_playing():
+            self.next_song.set()
 
     def skip(self):
         if self.is_playing():
@@ -353,13 +355,9 @@ class Music:
             try:
                 state.add_to_queue((state.voice.play, song))
             except AttributeError:
-                state.reset()
                 break
             if state.looping_queue:
                 state.looping_queue.append((state.voice.play, song))
-            if not state.is_playing():
-                state.next_song.set()
-                await ctx.send("Now playing `{}`".format(song.title))
 
         await unpacking_message.edit(content=f"`{playlist.get('name')}` has been unpacked into the queue")
 
