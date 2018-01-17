@@ -230,7 +230,7 @@ class VoiceState:
             self.queue = []
             self.looping_queue = []
             self.shuffled_queue = []
-            await self.voice.stop()
+            self.voice.stop()
             return True
 
     def toggle_next(self, error):
