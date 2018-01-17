@@ -163,12 +163,12 @@ class VoiceState:
         self.shuffled_queue = []
         self.shuffle = False
         self.player = None
+        self.first_track = True
 
     async def audio_player_task(self):
-        first_track = True
+        self.first_track = True
         while True:
             await self.next_song.wait()
-            self.next_song.clear()
             self.get_now_playing_embed.cache_clear()
             if len(self.queue) < 1:
                 if self.looping_queue:
@@ -188,9 +188,11 @@ class VoiceState:
             self.song_started = time.time()
             if first_track:
                 await self.now_playing.ctx.send(f"Now playing `{self.now_playing.title}`")
-                first_track = False
+                self.first_track = False
+            self.next_song.clear()
 
         await self.now_playing.ctx.send("Queue concluded")
+        await self.voice.disconnect()
         self.__init__(self.music, self.bot)  # Reinitialize voice state
 
     def loopqueue(self):
@@ -217,7 +219,7 @@ class VoiceState:
             self.shuffled_queue.append(value)
         if self.looping_queue:
             self.looping_queue.append(value)
-        if not self.is_playing():
+        if not self.is_playing() and self.first_track:
             self.next_song.set()
 
     def skip(self):
