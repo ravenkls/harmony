@@ -163,7 +163,6 @@ class VoiceState:
         self.shuffled_queue = []
         self.shuffle = False
         self.player = None
-        self.leave_task_ctx = None
 
     async def audio_player_task(self):
         first_track = True
@@ -229,8 +228,9 @@ class VoiceState:
     async def stop(self):
         if self.is_playing():
             self.queue = []
+            self.looping_queue = []
             self.shuffled_queue = []
-            await self.voice.disconnect()
+            await self.voice.stop()
             return True
 
     def toggle_next(self, error):
@@ -380,11 +380,8 @@ class Music:
         if state.looping_queue:
             state.looping_queue.append((state.voice.play, song))
 
-        if not state.is_playing():
-            state.next_song.set()
-            return await ctx.send("Now playing `{}`".format(song.title))
-
-        await ctx.send("`{}` has been added to the queue at position `{}`".format(song.title, len(state.queue)))
+        if state.is_playing():
+            await ctx.send("`{}` has been added to the queue at position `{}`".format(song.title, len(state.queue)))
 
     @commands.command()
     @commands.guild_only()
