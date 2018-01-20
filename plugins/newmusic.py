@@ -427,6 +427,8 @@ class Music:
     async def nowplaying(self, ctx):
         """Shows the currently playing song"""
         state = self.get_voice_state(ctx.guild)
+        if state.current is None:
+            return await ctx.send("Nothing is being played")
         await ctx.send(embed=state.current.embed)
 
     @commands.command(aliases=["q"])
