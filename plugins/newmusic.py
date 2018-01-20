@@ -367,6 +367,9 @@ class Music:
     @commands.guild_only()
     async def spotify(self, ctx, *, query="Today's Top Hits"):
         """Searches Spotify's playlists to unpack (default: Today's Top Hits)"""
+        if ctx.author.voice is None:
+            return await ctx.send("You aren't in a voice channel")
+
         message = await ctx.send(f"Searching Spotify for `{query}`...")
         playlist = SpotifyPlaylist.from_file(query, loop=self.bot.loop)
 
@@ -404,6 +407,9 @@ class Music:
     @commands.guild_only()
     async def play(self, ctx, *, query):
         """Streams from a url or search query (almost anything youtube_dl supports)"""
+        if ctx.author.voice is None:
+            return await ctx.send("You aren't in a voice channel")
+
         youtube_url = self.youtube.is_video_url(query)
         if youtube_url:
             song = await YouTubeVideo.from_url(youtube_url, loop=self.bot.loop)
@@ -428,6 +434,9 @@ class Music:
     async def queue(self, ctx, page: int=1):
         """Shows the queue"""
         state = self.get_voice_state(ctx.guild)
+        if state.current is None:
+            return await ctx.send("The queue is empty")
+
         queue = state.queue.visible_queue()
         pages = math.ceil(len(queue) / 10)
         queue_embed = discord.Embed(title="Now Playing",
