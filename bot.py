@@ -12,7 +12,7 @@ class Bot(commands.Bot):
 
     INSTALLED_PLUGINS = [
         "plugins.general",
-        "plugins.music",
+        "plugins.newmusic",
         # "plugins.moderation",
         # "plugins.permissions"
     ]
