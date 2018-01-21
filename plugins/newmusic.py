@@ -249,7 +249,7 @@ class MusicQueue:
 
     def clear(self):
         """Clears all playlists"""
-        self.normal_queue = []
+        self.normal = []
         self.shuffled = []
         self.looping = []
 
@@ -257,7 +257,7 @@ class MusicQueue:
         """Gets the next song in the queue, accounts for shuffled queues"""
         try:
             song = None
-            song = self.normal_queue[0]
+            song = self.normal[0]
             song = self.shuffled[0]
         except IndexError:
             pass
@@ -266,17 +266,17 @@ class MusicQueue:
 
     def remove(self, obj):
         """Removes a song from the list, accounts for shuffled and looping queues"""
-        self.normal_queue.remove(obj)
+        self.normal.remove(obj)
         if self.shuffled:
             self.shuffled.remove(obj)
 
-        if len(self.normal_queue) == 0:
-            self.normal_queue = list(self.looping)
+        if len(self.normal) == 0:
+            self.normal = list(self.looping)
             self.shuffled = list(self.looping)
 
     def add(self, obj):
         """Adds a song to the queue, accounts for shuffled and looping queues"""
-        self.normal_queue.append(obj)
+        self.normal.append(obj)
         if self.shuffled:
             self.shuffled.append(obj)
         if self.looping:
@@ -288,7 +288,7 @@ class MusicQueue:
         if self.shuffled:
             return self.shuffled
         else:
-            return self.normal_queue
+            return self.normal
 
 
 class VoiceState:
