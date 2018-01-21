@@ -413,9 +413,6 @@ class Music:
     @commands.guild_only()
     async def spotify(self, ctx, *, query="Today's Top Hits"):
         """Searches Spotify's playlists to unpack (default: Today's Top Hits)"""
-        if ctx.author.voice is None:
-            raise discord.ClientException("You aren't in a voice channel")
-
         message = await ctx.send(f"Searching Spotify for `{query}`...")
         playlist = SpotifyPlaylist.from_file(query, loop=self.bot.loop)
 
@@ -444,6 +441,9 @@ class Music:
                               playlist.data.get("href"))
             user_id, playlist_id = match.group(1), match.group(2)
             return await ctx.send(f"https://open.spotify.com/user/{user_id}/playlist/{playlist_id}")
+
+        if ctx.author.voice is None:
+            raise discord.ClientException("You aren't in a voice channel")
 
         message = await ctx.send(f"Unpacking `{playlist}`...")
 
