@@ -293,7 +293,7 @@ class MusicQueue:
             return self.normal
 
     @visible.setter
-    def visible(self, new)
+    def visible(self, new):
         """Changes the queue, and changes the shuffled queue if necessary"""
         if self.shuffled:
             self.shuffled = new
