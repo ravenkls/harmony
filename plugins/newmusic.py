@@ -501,7 +501,7 @@ class Music:
 
     @commands.command()
     @commands.guild_only()
-    def shuffle(self, ctx):
+    async def shuffle(self, ctx):
         """Shuffles or unshuffles the queue"""
         state = self.get_voice_state(ctx.guild)
         if state.shuffle():
@@ -511,7 +511,7 @@ class Music:
 
     @commands.command()
     @commands.guild_only()
-    def loop(self, ctx):
+    async def loop(self, ctx):
         state = self.get_voice_state(ctx.guild)
         if state.loop():
             await ctx.send("The queue will now loop")
