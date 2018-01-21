@@ -365,7 +365,7 @@ class VoiceState:
 
     def loop(self):
         """Enables or disbales looping of the queue"""
-        if self.queue.visible:
+        if self.queue.visible or self.current:
             return self.queue.loop(nowplaying=self.current)
         else:
             raise QueueEmpty("Can't loop when the queue is empty")
