@@ -232,6 +232,8 @@ class MusicQueue:
         if not self.looping:
             self.looping = list(self.visible)
             self.looping.insert(0, nowplaying)
+            if not self.visible:
+                self.visible = list(self.looping)
         else:
             self.looping = []
 
@@ -270,7 +272,7 @@ class MusicQueue:
         if self.shuffled:
             self.shuffled.remove(obj)
 
-        if len(self.normal) == 0:
+        if not self.normal:
             self.normal = list(self.looping)
             self.shuffled = list(self.looping)
 
