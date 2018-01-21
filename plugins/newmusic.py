@@ -8,6 +8,7 @@ import spotipy
 import discord
 import asyncio
 import aiohttp
+import random
 import json
 import math
 import os
@@ -36,21 +37,31 @@ api_keys = {"youtube": os.environ.get("YOUTUBE_API_KEY", ""),
             "spotify_secret": os.environ.get("SPOTIFY_CLIENT_SECRET", "")}
 
 
+class QueueEmpty(Exception):
+    """Exception used when the queue is empty"""
+    pass
+
+
+class MusicNotPlaying(Exception):
+    """Exception used when no music is being played"""
+    pass
+
+
 class SpotifyPlaylist:
     def __init__(self, playlist, *, loop=None):
         self.loop = loop or asyncio.get_event_loop()
         self.ytdl = youtube_dl.YoutubeDL(YOUTUBE_DL_OPTIONS)
-        self.playlist = playlist
+        self.data = playlist
 
     def __str__(self):
-        return self.playlist.get("name")
+        return self.data.get("name")
 
     def __repr__(self):
         return "<SpotifyPlaylist: {}>".format(self.__str__())
 
     async def songs(self):
         youtube = YouTube(self.loop)
-        for song in self.playlist["tracks"]["items"]:
+        for song in self.data["tracks"]["items"]:
             track = song.get("track")
             track_name = track.get("name")
             track_artists = ", ".join([artist["name"] for artist in track["artists"]])
@@ -212,38 +223,42 @@ class YouTubeVideo:
 class MusicQueue:
     def __init__(self):
         """Represents a music queue"""
-        self.normal_queue = []
-        self.shuffled_queue = []
-        self.looping_queue = []
+        self.normal = []
+        self.shuffled = []
+        self.looping = []
 
-    def loop(self):
+    def loop(self, *, nowplaying):
         """Enables or disables looping"""
-        if not self.looping_queue:
-            self.looping_queue = list(self.visible_queue())
+        if not self.looping:
+            self.looping = list(self.visible)
+            self.looping.insert(0, nowplaying)
         else:
-            self.looping_queue = []
+            self.looping = []
 
-        return bool(self.looping_queue)
+        return bool(self.looping)
 
-    def visible_queue(self):
-        """Returns the queue which the user will see"""
-        if self.shuffled_queue:
-            return self.shuffled_queue
+    def shuffle(self):
+        """Enables or disables shuffling"""
+        if not self.shuffled:
+            self.shuffled = list(self.visible)
+            random.shuffle(self.shuffled)
         else:
-            return self.normal_queue
+            self.shuffled = []
+
+        return bool(self.shuffled)
 
     def clear(self):
         """Clears all playlists"""
         self.normal_queue = []
-        self.shuffled_queue = []
-        self.looping_queue = []
+        self.shuffled = []
+        self.looping = []
 
     def get_next_song(self):
         """Gets the next song in the queue, accounts for shuffled queues"""
         try:
             song = None
             song = self.normal_queue[0]
-            song = self.shuffled_queue[0]
+            song = self.shuffled[0]
         except IndexError:
             pass
 
@@ -252,20 +267,28 @@ class MusicQueue:
     def remove(self, obj):
         """Removes a song from the list, accounts for shuffled and looping queues"""
         self.normal_queue.remove(obj)
-        if self.shuffled_queue:
-            self.shuffled_queue.remove(obj)
+        if self.shuffled:
+            self.shuffled.remove(obj)
 
         if len(self.normal_queue) == 0:
-            self.normal_queue = list(self.looping_queue)
-            self.shuffled_queue = list(self.looping_queue)
+            self.normal_queue = list(self.looping)
+            self.shuffled = list(self.looping)
 
     def add(self, obj):
         """Adds a song to the queue, accounts for shuffled and looping queues"""
         self.normal_queue.append(obj)
-        if self.shuffled_queue:
-            self.shuffled_queue.append(obj)
-        if self.looping_queue:
-            self.looping_queue.append(obj)
+        if self.shuffled:
+            self.shuffled.append(obj)
+        if self.looping:
+            self.looping.append(obj)
+
+    @property
+    def visible(self):
+        """Returns the queue which the user will see"""
+        if self.shuffled:
+            return self.shuffled
+        else:
+            return self.normal_queue
 
 
 class VoiceState:
@@ -333,6 +356,20 @@ class VoiceState:
         self.voice = await voice_channel.connect()
         return self.voice
 
+    def shuffle(self):
+        """Shuffles or unshuffles the queue"""
+        if self.queue.visible:
+            return self.queue.shuffle()
+        else:
+            raise QueueEmpty("Can't shuffle when the queue is empty")
+
+    def loop(self):
+        """Enables or disbales looping of the queue"""
+        if self.queue.visible:
+            return self.queue.loop(nowplaying=self.current)
+        else:
+            raise QueueEmpty("Can't loop when the queue is empty")
+
     def skip(self):
         """Skips the song by stopping the current song"""
         if self.is_playing():
@@ -368,19 +405,20 @@ class Music:
     async def spotify(self, ctx, *, query="Today's Top Hits"):
         """Searches Spotify's playlists to unpack (default: Today's Top Hits)"""
         if ctx.author.voice is None:
-            return await ctx.send("You aren't in a voice channel")
+            raise discord.ClientException("You aren't in a voice channel")
 
         message = await ctx.send(f"Searching Spotify for `{query}`...")
         playlist = SpotifyPlaylist.from_file(query, loop=self.bot.loop)
 
-        await message.edit(content=f"Should I add `{playlist}` to the queue?")
+        await message.edit(content=f"Should I add `{playlist}` to the queue? Or would you prefer the playlist url?")
         await message.add_reaction("\U00002705")  # check mark
         await message.add_reaction("\U0000274E")  # cross mark
+        await message.add_reaction("\U0001F517")  # link emoji
 
         def check(reaction, user):
             """Checks whether the user reacted and whether the reaction was valid"""
             if user == ctx.author:
-                return str(reaction) in ("\U00002705", "\U0000274E")  # cross or check mark
+                return str(reaction) in ("\U00002705", "\U0000274E", "\U0001F517")  # cross or check mark or link
             return False
 
         try:
@@ -392,6 +430,11 @@ class Music:
 
         if str(reaction) == "\U0000274E":  # if the user reacted with a cross mark (i.e. no)
             return
+        elif str(reaction) == "\U0001F517":  # if the user reacted with link (i.e. url)
+            match = re.search(r"https:\/\/api\.spotify\.com\/v1\/users\/(.*?)\/playlists\/(.*?)$",
+                              playlist.data.get("href"))
+            user_id, playlist_id = match.group(1), match.group(2)
+            return await ctx.send(f"https://open.spotify.com/user/{user_id}/playlist/{playlist_id}")
 
         message = await ctx.send(f"Unpacking `{playlist}`...")
 
@@ -428,7 +471,7 @@ class Music:
         """Shows the currently playing song"""
         state = self.get_voice_state(ctx.guild)
         if state.current is None:
-            return await ctx.send("Nothing is being played")
+            raise MusicNotPlaying("Can't show now playing when nothing is being played")
         await ctx.send(embed=state.current.embed)
 
     @commands.command(aliases=["q"])
@@ -437,9 +480,9 @@ class Music:
         """Shows the queue"""
         state = self.get_voice_state(ctx.guild)
         if state.current is None:
-            return await ctx.send("The queue is empty")
+            raise QueueEmpty("The queue is empty and nothing is being played")
 
-        queue = state.queue.visible_queue()
+        queue = state.queue.visible
         pages = math.ceil(len(queue) / 10)
         queue_embed = discord.Embed(title="Now Playing",
                                     description=state.current.title)
@@ -456,6 +499,24 @@ class Music:
 
         await ctx.send(embed=queue_embed)
 
+    @commands.command()
+    @commands.guild_only()
+    def shuffle(self, ctx):
+        """Shuffles or unshuffles the queue"""
+        state = self.get_voice_state(ctx.guild)
+        if state.shuffle():
+            await ctx.send("The queue is now shuffled")
+        else:
+            await ctx.send("The queue has been unshuffled")
+
+    @commands.command()
+    @commands.guild_only()
+    def loop(self, ctx):
+        state = self.get_voice_state(ctx.guild)
+        if state.loop():
+            await ctx.send("The queue will now loop")
+        else:
+            await ctx.send("The queue will no longer loopw")
 
     @commands.command()
     @commands.guild_only()
@@ -465,7 +526,7 @@ class Music:
         if state.skip():
             await ctx.send("Skipping...")
         else:
-            raise Exception("Nothing is being played")
+            raise MusicNotPlaying("Can't skip song when music isn't playing")
 
     @commands.command()
     @commands.guild_only()
@@ -473,7 +534,7 @@ class Music:
         """Stops the music"""
         state = self.get_voice_state(ctx.guild)
         if not state.stop():
-            raise Exception("Nothing is being played")
+            raise MusicNotPlaying("The music has already stopped")
 
 
 def setup(bot):
