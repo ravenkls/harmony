@@ -292,6 +292,12 @@ class MusicQueue:
         else:
             return self.normal
 
+    @visible.setter(self, new):
+        """Changes the queue, and changes the shuffled queue if necessary"""
+        if self.shuffled:
+            self.shuffled = new
+        self.normal = new
+
 
 class VoiceState:
     def __init__(self, bot):
