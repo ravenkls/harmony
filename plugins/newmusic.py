@@ -2,6 +2,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from discord.ext import commands
 from operator import itemgetter
 from fuzzywuzzy import process
+from bot import EMBED_COLOUR
 import youtube_dl
 import datetime
 import spotipy
@@ -60,7 +61,7 @@ class SpotifyPlaylist:
         return "<SpotifyPlaylist: {}>".format(self.__str__())
 
     async def songs(self):
-        youtube = YouTube(self.loop)
+        youtube = YouTube(loop=self.loop)
         for song in self.data["tracks"]["items"]:
             track = song.get("track")
             track_name = track.get("name")
@@ -100,7 +101,7 @@ class SpotifyPlaylist:
 
 
 class YouTube:
-    def __init__(self, loop):
+    def __init__(self, *, loop):
         """Handles all YouTube video and playlists information"""
         self.loop = loop
 
@@ -184,25 +185,30 @@ class YouTubeVideo:
 
     async def download(self):
         if not self.downloaded:
-            data = await self.loop.run_in_executor(None, self.ytdl.extract_info, self.video_url, False)
-            for name, value in data.items():
+            self.data = await self.loop.run_in_executor(None, self.ytdl.extract_info, self.video_url, False)
+            for name, value in self.data.items():
                 if type(value) not in (list, tuple, dict):
                     setattr(self, name, value)  # convert dictionary into variables
             self.downloaded = True
 
-    @property
-    def embed(self):
+    def embed(self, music_queue=None):
         if self.downloaded:
-            embed = discord.Embed(title=self.title, url=self.webpage_url)
+            embed = discord.Embed(title=self.title, url=self.webpage_url, colour=EMBED_COLOUR)
             embed.set_thumbnail(url=self.thumbnail)
             minutes, seconds = divmod(self.duration, 60)
             hours, minutes = divmod(minutes, 60)
             duration = datetime.time(hours, minutes, seconds).strftime("%M:%S")
             embed.add_field(name="Duration", value=duration)
-            # embed.add_field("Song starting in", value)  # how long until the song will start
             embed.add_field(name="Requester", value=str(self.requester))
+        elif music_queue:
+            embed = discord.Embed(colour=EMBED_COLOUR)
+            embed.set_author(name="+ Song added")
+            embed.set_footer(text="{} has been added at position {} by {}".format(
+                             self.title or self.video_url,
+                             music_queue.visible.index(self),
+                             self.requester))
         else:
-            embed = discord.Embed(title=self.title or self.video_url)
+            embed = discord.Embed(title=self.title or self.video_url, colour=EMBED_COLOUR)
 
         return embed
 
@@ -399,7 +405,7 @@ class Music:
     def __init__(self, bot):
         self.bot = bot
         self.voice_states = {}
-        self.youtube = YouTube(self.bot.loop)
+        self.youtube = YouTube(loop=self.bot.loop)
 
     def get_voice_state(self, guild):
         """Gets the VoiceState object associated with the guild"""
@@ -453,6 +459,7 @@ class Music:
             success = state.add_song_to_playlist(song, context=ctx, batch_job=True)
             if not success:
                 break
+        state.batch_job = False  # end the batch job
         await message.edit(content=f"`{playlist}` has been unpacked")
 
     @commands.command()
@@ -472,7 +479,7 @@ class Music:
         await state.join_voice_channel(ctx.author.voice.channel)
         state.add_song_to_playlist(song, context=ctx)
 
-        await ctx.send(f"{song} has been added to the queue")
+        await ctx.send(embed=song.embed(music_queue=state.queue))
 
     @commands.command(aliases=["np"])
     @commands.guild_only()
@@ -481,7 +488,7 @@ class Music:
         state = self.get_voice_state(ctx.guild)
         if state.current is None:
             raise MusicNotPlaying("Can't show now playing when nothing is being played")
-        await ctx.send(embed=state.current.embed)
+        await ctx.send(embed=state.current.embed())
 
     @commands.command(aliases=["q"])
     @commands.guild_only()

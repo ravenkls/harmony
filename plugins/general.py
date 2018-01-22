@@ -18,7 +18,7 @@ class General:
     async def help(self, ctx, cmd=None):
         """ Shows you a list of commands """
         if cmd is None:
-            help_embed = discord.Embed(title="Commands are listed below", colour=self.bot.embed_colour())
+            help_embed = discord.Embed(title="Commands are listed below", colour=self.bot.embed_colour)
             help_embed.__setattr__("description", f"Type `{self.bot.prefix}help <command>` for more information")
             help_embed.set_author(name=self.bot.user.name, icon_url=self.bot.user.avatar_url)
             help_embed.set_thumbnail(url=self.bot.user.avatar_url)
@@ -32,7 +32,7 @@ class General:
             if command is None:
                 ctx.send("That command does not exist")
             else:
-                help_embed = discord.Embed(title=command.name, colour=self.bot.embed_colour())
+                help_embed = discord.Embed(title=command.name, colour=self.bot.embed_colour)
                 desc = command.description
                 help_embed.description = desc if desc != "" else command.callback.__doc__
                 aliases = ", ".join("`{}`".format(c) for c in command.aliases)
@@ -73,7 +73,7 @@ class General:
         h, m = divmod(m, 60)
         d, h = divmod(h, 24)
         d, h, m, s = map(int, (d, h, m, s))
-        uptime_embed = discord.Embed(description=f":clock5:  **Ive been online for:**  {d}d {h}h {m}m {s}s", colour=self.bot.embed_colour())
+        uptime_embed = discord.Embed(description=f":clock5:  **Ive been online for:**  {d}d {h}h {m}m {s}s", colour=self.bot.embed_colour)
         await ctx.send(embed=uptime_embed)
 
     @commands.command(hidden=True)

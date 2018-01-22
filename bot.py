@@ -6,6 +6,7 @@ import inspect
 import aiohttp
 
 DISCORDBOTS_API = os.environ.get("DISCORDBOTS_KEY")
+EMBED_COLOUR = 0x19868A
 
 
 class Bot(commands.Bot):
@@ -20,7 +21,7 @@ class Bot(commands.Bot):
     def __init__(self, command_symbol: str, *args, **kwargs):
         self.log("Initialising")
         self.prefix = command_symbol
-        self.embed_colour = lambda: 0x19868A
+        self.embed_colour = EMBED_COLOUR
         super().__init__(command_prefix=self.get_prefixes, *args, **kwargs)
 
     def get_prefixes(self, bot, message):
