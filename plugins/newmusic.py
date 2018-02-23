@@ -456,8 +456,9 @@ class Music:
     @commands.guild_only()
     async def spotify(self, ctx, *, placeholder):
         """This command is no longer available"""
-        return await ctx.send("Due to issues with Spotify and their TOS, this command"
-                              "has been replaced with the >charts command.")
+        return await ctx.send("Due to issues with Spotify and their TOS, this command "
+                              "has been replaced with the >charts command. Sorry for any "
+                              "inconvenience.")
 
     @commands.command()
     @commands.guild_only()
