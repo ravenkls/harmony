@@ -173,14 +173,11 @@ class YouTubeVideo:
 
     async def download(self):
         if not self.downloaded:
-            print("nope")
             self.data = await self.loop.run_in_executor(None, self.ytdl.extract_info, self.video_url, False)
-            print("nope")
             for name, value in self.data.items():
                 if type(value) not in (list, tuple, dict):
                     setattr(self, name, value)  # convert dictionary into variables
             self.downloaded = True
-            print("got it")
 
     def embed(self, music_queue=None):
         if self.downloaded:
@@ -206,7 +203,6 @@ class YouTubeVideo:
     @property
     def source(self):
         if self.downloaded:
-            print(self.data.get("url"))
             return discord.FFmpegPCMAudio(self.data.get("url"))
         else:
             return None
@@ -343,12 +339,9 @@ class VoiceState:
             self.play_next_song.clear()
             self.current = self.queue.get_next_song()
             # await self.current.channel.send(f"Now playing {self.current}")
-            print("got it??")
             await self.current.download()
-            print("got it??")
             self.queue.remove(self.current)
             self.voice.play(self.current.source, after=self.toggle_next_song)
-            print("no")
 
             await self.play_next_song.wait()
 
@@ -418,7 +411,7 @@ class Music:
 
         playlist = ChartsPlaylist(loop=self.bot.loop)
 
-        message = await ctx.send(content=f"Should I add `{playlist}` to the queue? Or would you prefer the playlist url?")
+        message = await ctx.send(content=f"Should I add `{playlist}` to the queue?")
         await message.add_reaction("\U00002705")  # check mark
         await message.add_reaction("\U0000274E")  # cross mark
 
@@ -454,7 +447,7 @@ class Music:
 
     @commands.command(hidden=True)
     @commands.guild_only()
-    async def spotify(self, ctx, *, placeholder):
+    async def spotify(self, ctx, *, placeholder=None):
         """This command is no longer available"""
         return await ctx.send("Due to issues with Spotify and their TOS, this command "
                               "has been replaced with the >charts command. Sorry for any "
