@@ -3,6 +3,8 @@ from discord.ext import commands
 from operator import itemgetter
 from fuzzywuzzy import process
 from bot import EMBED_COLOUR
+import requests
+from bs4 import BeautifulSoup
 import youtube_dl
 import datetime
 import spotipy
@@ -48,56 +50,42 @@ class MusicNotPlaying(Exception):
     pass
 
 
-class SpotifyPlaylist:
-    def __init__(self, playlist, *, loop=None):
+class ChartsPlaylist:
+    cached_charts = []
+
+    def __init__(self, loop=None):
         self.loop = loop or asyncio.get_event_loop()
         self.ytdl = youtube_dl.YoutubeDL(YOUTUBE_DL_OPTIONS)
-        self.data = playlist
+        self.data = self.get_charts()
 
     def __str__(self):
-        return self.data.get("name")
+        return "Top 100 Charts"
 
     def __repr__(self):
-        return "<SpotifyPlaylist: {}>".format(self.__str__())
+        return "<ChartsPlaylist: {}>".format(self.__str__())
+
+    def get_charts(self):
+        response = requests.get("http://www.officialcharts.com/charts/singles-chart/")
+        soup = BeautifulSoup(response.text, "html.parser")
+        songs = soup.findAll("div", {"class": "title-artist"})
+        song_title = [s.find("div", {"class": "title"}).text.strip() for s in songs]
+        song_artist = [s.find("div", {"class": "artist"}).text.strip() for s in songs]
+        charts = [{"title": title, "artist": artist} for title, artist in zip(song_title, song_artist)]
+        return charts
 
     async def songs(self):
         youtube = YouTube(loop=self.loop)
-        for song in self.data["tracks"]["items"]:
-            track = song.get("track")
-            track_name = track.get("name")
-            track_artists = ", ".join([artist["name"] for artist in track["artists"]])
-            query = f"{track_name} - {track_artists}"
-            video = await youtube.search(query)
-            yield video
-
-    @classmethod
-    def from_uri(cls, uri, *, loop=None):
-        """Create a spotify playlist object from a URI"""
-        uri_pattern = re.search(r"^spotify:user:(.*?):playlist:(.*?)$", uri)
-        if uri_pattern is None:
-            return None
-
-        manager = SpotifyClientCredentials(client_id=api_keys.get("spotify"),
-                                           client_secret=api_keys.get("spotify_secret"))
-        spotify_api = spotipy.Spotify(client_credentials_manager=manager)
-
-        user_id = uri_pattern.group(1)
-        playlist_id = uri_pattern.group(2)
-        playlist = spotify_api.user_playlist(user_id, playlist_id)
-
-        return cls(playlist, loop=loop)
-
-    @classmethod
-    def from_file(cls, query, file="playlists.json", *, loop=None):
-        """Searches a json file for a playlist uri"""
-        with open(file) as playlists_file:
-            playlists = json.loads(playlists_file.read())
-
-        results = process.extract(query, playlists.keys())
-        top = max(results, key=itemgetter(1))
-        uri = playlists.get(top[0])
-
-        return cls.from_uri(uri, loop=loop)
+        if len(self.cached_charts) == 100:
+            for song in self.cached_charts:
+                yield song
+        else:
+            for song in self.data:
+                song_title = song.get("title")
+                song_artist = song.get("artist")
+                query = f"{song_title} - {song_artist}"
+                video = await youtube.search(query)
+                self.cached_charts.append(video)
+                yield video
 
 
 class YouTube:
@@ -185,11 +173,14 @@ class YouTubeVideo:
 
     async def download(self):
         if not self.downloaded:
+            print("nope")
             self.data = await self.loop.run_in_executor(None, self.ytdl.extract_info, self.video_url, False)
+            print("nope")
             for name, value in self.data.items():
                 if type(value) not in (list, tuple, dict):
                     setattr(self, name, value)  # convert dictionary into variables
             self.downloaded = True
+            print("got it")
 
     def embed(self, music_queue=None):
         if self.downloaded:
@@ -215,7 +206,8 @@ class YouTubeVideo:
     @property
     def source(self):
         if self.downloaded:
-            return discord.FFmpegPCMAudio(self.url)
+            print(self.data.get("url"))
+            return discord.FFmpegPCMAudio(self.data.get("url"))
         else:
             return None
 
@@ -349,12 +341,14 @@ class VoiceState:
 
         while self.queue.get_next_song() is not None:
             self.play_next_song.clear()
-
             self.current = self.queue.get_next_song()
             # await self.current.channel.send(f"Now playing {self.current}")
+            print("got it??")
             await self.current.download()
+            print("got it??")
             self.queue.remove(self.current)
             self.voice.play(self.current.source, after=self.toggle_next_song)
+            print("no")
 
             await self.play_next_song.wait()
 
@@ -417,20 +411,21 @@ class Music:
 
     @commands.command()
     @commands.guild_only()
-    async def spotify(self, ctx, *, query="Today's Top Hits"):
-        """Searches Spotify's playlists to unpack (default: Today's Top Hits)"""
-        message = await ctx.send(f"Searching Spotify for `{query}`...")
-        playlist = SpotifyPlaylist.from_file(query, loop=self.bot.loop)
+    async def charts(self, ctx):
+        """Grabs the top 100 charts and adds them to the playlist"""
+        if ctx.author.voice is None:
+            return await ctx.send("You aren't in a voice channel")
 
-        await message.edit(content=f"Should I add `{playlist}` to the queue? Or would you prefer the playlist url?")
+        playlist = ChartsPlaylist(loop=self.bot.loop)
+
+        message = await ctx.send(content=f"Should I add `{playlist}` to the queue? Or would you prefer the playlist url?")
         await message.add_reaction("\U00002705")  # check mark
         await message.add_reaction("\U0000274E")  # cross mark
-        await message.add_reaction("\U0001F517")  # link emoji
 
         def check(reaction, user):
             """Checks whether the user reacted and whether the reaction was valid"""
             if user == ctx.author:
-                return str(reaction) in ("\U00002705", "\U0000274E", "\U0001F517")  # cross or check mark or link
+                return str(reaction) in ("\U00002705", "\U0000274E")  # cross or check mark or link
             return False
 
         try:
@@ -442,11 +437,6 @@ class Music:
 
         if str(reaction) == "\U0000274E":  # if the user reacted with a cross mark (i.e. no)
             return
-        elif str(reaction) == "\U0001F517":  # if the user reacted with link (i.e. url)
-            match = re.search(r"https:\/\/api\.spotify\.com\/v1\/users\/(.*?)\/playlists\/(.*?)$",
-                              playlist.data.get("href"))
-            user_id, playlist_id = match.group(1), match.group(2)
-            return await ctx.send(f"https://open.spotify.com/user/{user_id}/playlist/{playlist_id}")
 
         if ctx.author.voice is None:
             raise discord.ClientException("You aren't in a voice channel")
@@ -461,6 +451,13 @@ class Music:
                 break
         state.batch_job = False  # end the batch job
         await message.edit(content=f"`{playlist}` has been unpacked")
+
+    @commands.command(hidden=True)
+    @commands.guild_only()
+    async def spotify(self, ctx, *, placeholder):
+        """This command is no longer available"""
+        return await ctx.send("Due to issues with Spotify and their TOS, this command"
+                              "has been replaced with the >charts command.")
 
     @commands.command()
     @commands.guild_only()

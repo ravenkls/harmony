@@ -40,41 +40,6 @@ ytdl_format_options = {
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 YOUTUBE_API_KEY = os.environ.get("YOUTUBE_API_KEY")
-SPOTIFY_CLIENT_ID = os.environ.get("SPOTIFY_CLIENT_ID")
-SPOTIFY_CLIENT_SECRET = os.environ.get("SPOTIFY_CLIENT_SECRET")
-
-
-class SpotifyAPI:
-    def __init__(self):
-        client_credentials_manager = SpotifyClientCredentials(client_id=SPOTIFY_CLIENT_ID,
-                                                              client_secret=SPOTIFY_CLIENT_SECRET)
-        self.spotify_api = spotipy.Spotify(client_credentials_manager=client_credentials_manager)
-
-    def get_spotify_playlist(self, uri):
-        user_id = uri.split(":")[2]
-        playlist_id = uri.split(":")[4]
-        playlist = self.spotify_api.user_playlist(user_id, playlist_id)
-        return playlist
-
-    def get_all_playlists(self, user_id):
-        response = {}
-        offset = 0
-
-        while len(response) % 50 == 0:
-            playlists = self.spotify_api.user_playlists(user_id, limit=50, offset=offset)
-            for playlist in playlists.get("items"):
-                response[playlist.get("name")] = playlist.get("uri")
-            offset += 50
-
-        return response
-
-    def search_playlist_file(self, query, file="playlists.json"):
-        with open(file) as playlists_file:
-            playlists = json.loads(playlists_file.read())
-
-        results = process.extract(query, playlists.keys())
-        top = max(results, key=itemgetter(1))
-        return {"name": top[0], "uri": playlists.get(top[0])}
 
 
 class YTDLSource:
@@ -147,6 +112,28 @@ class YTDLSource:
 
                 video["id"] = video_id
                 return video
+
+
+class Charts:
+    def __init__(self):
+        self.cached_charts = None
+
+    def get_charts(self):
+        """ Returns a list of dictionarys with the top 100 charts in the format [{"title": name, "artist": artist}, ...] """
+        if not self.cached_charts:
+            response = requests.get("http://www.officialcharts.com/charts/singles-chart/")
+            soup = BeautifulSoup(response.text, "html.parser")
+            songs = soup.findAll("div", {"class": "title-artist"})
+            song_title = [s.find("div", {"class": "title"}).text.strip() for s in songs]
+            song_artist = [s.find("div", {"class": "artist"}).text.strip() for s in songs]
+            charts = [{"title": title, "artist": artist} for title, artist in zip(song_title, song_artist)]
+            self.cached_charts = charts
+        return self._charts_unpacker(self.cached_charts)
+
+    async def _charts_unpacker(self, charts):
+        for song in charts:
+            yt_video = await YTDLSource.from_url(ctx, " - ".join([song["name"], song["artist"]]))
+            yield yt_video
 
 
 class VoiceState:
@@ -282,6 +269,7 @@ class Music:
         self.bot = bot
         self.voice_states = {}
         self.spotify_api = SpotifyAPI()
+        self.charts = Charts()
 
     def get_voice_state(self, guild):
         state = self.voice_states.get(guild.id)
@@ -312,6 +300,51 @@ class Music:
         await ctx.send(response)
 
     @commands.command()
+    @commands.guide_only()
+    async def charts(self, ctx):
+        """Adds the top 100 charts to the playlist"""
+        ask_message = await ctx.send("Do you want me to add the top 100 charts to the playlist?")
+        
+        def check(reaction, user):
+            return user == ctx.author and str(reaction) == "\U00002705"
+
+        await ask_message.add_reaction("\U00002705")  # cjeck mark
+        await ask_message.add_reaction("\U0000274E")  # cross mark
+        
+        try:
+            reaction, user = await self.bot.wait_for("reaction_add", timeout=30.0, check=check)
+        except asyncio.TimeoutError:
+            await ask_message.delete()
+            return await ctx.send("User failed to respond in 30 seconds")
+        else:
+            await ask_message.delete()
+            if str(reaction) == "\U0000274E":
+                return
+
+        state = self.get_voice_state(ctx.guild)
+        if state.voice is None:
+            if ctx.author.voice and ctx.author.voice.channel:
+                await self.create_voice_client(ctx.author.voice.channel)
+            else:
+                return await ctx.send("Not connected to a voice channel.")
+        else:
+            if ctx.author.voice.channel is not state.voice.channel:
+                await state.voice.move_to(ctx.author.voice.channel)
+
+        unpacking_message = await ctx.send("Unpacking charts")
+        songs_list =  self.charts.get_charts()
+        async for video in songs_list():
+            try:
+                state.add_to_queue((state.voice.play, song))
+            except AttributeError:
+                break
+            if state.looping_queue:
+                state.looping_queue.append((state.voice.play, song))
+
+        await unpacking_message.edit(content="Playlist has been unpacked")
+
+
+    @commands.command()
     @commands.guild_only()
     async def spotify(self, ctx, *, query="Today's Top Hits"):
         """Adds a spotify playlist to the music queue by query or randomly"""
@@ -327,11 +360,12 @@ class Music:
             return False
 
         await ask_message.edit(content=f"Should I add `{playlist.get('name')}` to the queue?")
-        await ask_message.add_reaction("\U00002705")  # cjeck mark
+        await ask_message.add_reaction("\U00002705")  # check mark
         await ask_message.add_reaction("\U0000274E")  # cross mark
         try:
             reaction, user = await self.bot.wait_for("reaction_add", timeout=30.0, check=check)
         except asyncio.TimeoutError:
+            
             await ask_message.delete()
             return await ctx.send("User failed to respond in 30 seconds")
         else:
