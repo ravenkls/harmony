@@ -127,7 +127,7 @@ class Bot(commands.Bot):
 
 
 def main():
-    bot = Bot(">>")
+    bot = Bot(">")
     bot.load(*Bot.INSTALLED_PLUGINS)
     token = os.environ.get("HARMONY_TOKEN")
     if not token:
