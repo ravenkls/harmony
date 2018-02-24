@@ -60,9 +60,10 @@ class General:
     @commands.command()
     async def ping(self, ctx):
         """Pong!"""
-        diff = datetime.datetime.utcnow() - ctx.message.created_at
+        pong_msg = await ctx.send(":ping_pong:  pong!")
+        diff = pong_msg.created_at - ctx.message.created_at
         ms = int(diff.total_seconds() * 1000)
-        await ctx.send(":ping_pong: `{}ms`".format(ms))
+        await pong_msg.edit(content=":ping_pong:  pong! `{}ms`".format(ms))
 
     @commands.command(description="Shows how long I've been online for")
     async def uptime(self, ctx):

@@ -35,9 +35,7 @@ YOUTUBE_DL_OPTIONS = {
 # Suppress noise about console usage from errors
 youtube_dl.utils.bug_reports_message = lambda: ''
 
-api_keys = {"youtube": os.environ.get("YOUTUBE_API_KEY", ""),
-            "spotify": os.environ.get("SPOTIFY_CLIENT_ID", ""),
-            "spotify_secret": os.environ.get("SPOTIFY_CLIENT_SECRET", "")}
+api_keys = {"youtube": os.environ.get("YOUTUBE_API_KEY", "")}
 
 
 class QueueEmpty(Exception):
@@ -345,7 +343,12 @@ class VoiceState:
 
             await self.play_next_song.wait()
 
-        await self.current.channel.send("Queue concluded.")
+        if random.randrange(5):
+            await self.current.channel.send("Queue concluded.")
+        else:
+            await self.current.channel.send("Queue concluded. Enjoy my features? Help me expand by "
+                                            "donating via patreon @ https://www.patreon.com/ravenkls")
+
         self.current = None
         self.play_next_song.clear()
         self.music_player = self.bot.loop.create_task(self.music_player_task())
@@ -401,6 +404,16 @@ class Music:
             state = VoiceState(self.bot)
             self.voice_states[guild] = state
         return state
+
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def musicstates(self, ctx):
+        music_states_msg = "\n".join([server.name for server, state in self.voice_states.items()
+                                      if state.is_playing()])
+        if not music_states_msg:
+            await ctx.send("No servers are using voice currently")
+        else:
+            await ctx.send("".join(["```", music_states_msg, "```"]))
 
     @commands.command()
     @commands.guild_only()
