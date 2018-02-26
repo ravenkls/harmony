@@ -2,9 +2,6 @@ from discord.ext import commands
 from discord.ext.commands.cooldowns import BucketType
 import datetime
 import discord
-import inspect
-from fuzzywuzzy import fuzz
-import datetime
 
 
 class General:

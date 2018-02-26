@@ -1,18 +1,14 @@
-from spotipy.oauth2 import SpotifyClientCredentials
+
 from discord.ext import commands
-from operator import itemgetter
-from fuzzywuzzy import process
 from bot import EMBED_COLOUR
 import requests
 from bs4 import BeautifulSoup
 import youtube_dl
 import datetime
-import spotipy
 import discord
 import asyncio
 import aiohttp
 import random
-import json
 import math
 import os
 import re
@@ -63,12 +59,16 @@ class ChartsPlaylist:
         return "<ChartsPlaylist: {}>".format(self.__str__())
 
     def get_charts(self):
-        response = requests.get("http://www.officialcharts.com/charts/singles-chart/")
+        response = requests.get(
+            "http://www.officialcharts.com/charts/singles-chart/")
         soup = BeautifulSoup(response.text, "html.parser")
         songs = soup.findAll("div", {"class": "title-artist"})
-        song_title = [s.find("div", {"class": "title"}).text.strip() for s in songs]
-        song_artist = [s.find("div", {"class": "artist"}).text.strip() for s in songs]
-        charts = [{"title": title, "artist": artist} for title, artist in zip(song_title, song_artist)]
+        song_title = [
+            s.find("div", {"class": "title"}).text.strip() for s in songs]
+        song_artist = [
+            s.find("div", {"class": "artist"}).text.strip() for s in songs]
+        charts = [{"title": title, "artist": artist}
+                  for title, artist in zip(song_title, song_artist)]
         return charts
 
     async def songs(self):
@@ -94,11 +94,13 @@ class YouTube:
     @staticmethod
     def is_video_url(url):
         """Checks whether a string is a YouTube url, returns URL if it is"""
-        url_pattern = re.search(r"http[s]?:\/\/www\.youtube\.com\/watch\?v=\S{11}", url)  # normal youtube URL
+        url_pattern = re.search(
+            r"http[s]?:\/\/www\.youtube\.com\/watch\?v=\S{11}", url)  # normal youtube URL
         if url_pattern is not None:
             return url_pattern.group()
 
-        url_pattern = re.search(r"http[s]?:\/\/youtu\.be\/\S{11}", url)  # youtu.be links
+        url_pattern = re.search(
+            r"http[s]?:\/\/youtu\.be\/\S{11}", url)  # youtu.be links
         if url_pattern is not None:
             return url_pattern.group()
 
@@ -106,12 +108,14 @@ class YouTube:
 
     async def api_call(self, endpoint, params):
         """Sends a request to the YouTube v3 API"""
-        params.update({"key": api_keys.get("youtube")})  # add api key to the payload
+        params.update({"key": api_keys.get("youtube")}
+                      )  # add api key to the payload
         async with aiohttp.ClientSession() as session:
             endpoint = "https://www.googleapis.com/youtube/v3/" + endpoint
             response = await session.get(endpoint, params=params)
             youtube_json = await response.json()  # Convert response to json
-            if youtube_json.get("error"):  # If the request returned an error raise an exception
+            # If the request returned an error raise an exception
+            if youtube_json.get("error"):
                 message = youtube_json["error"]["errors"][0]["reason"]
                 raise aiohttp.http_exceptions.HttpBadRequest(message)
         return youtube_json
@@ -143,11 +147,14 @@ class YouTube:
         youtube_json = await self.api_call("search", params=payload)
 
         videos_json = youtube_json.get("items")
-        video_ids = (video["id"]["videoId"] for video in videos_json)  # All video IDs
-        video_titles = (video["snippet"]["title"] for video in videos_json)  # All video title
+        video_ids = (video["id"]["videoId"]
+                     for video in videos_json)  # All video IDs
+        video_titles = (video["snippet"]["title"]
+                        for video in videos_json)  # All video title
         videos = []
         for video_title, video_id in zip(video_titles, video_ids):
-            videos.append(YouTubeVideo(video_id, title=video_title, loop=self.loop))
+            videos.append(YouTubeVideo(
+                video_id, title=video_title, loop=self.loop))
 
         return videos
 
@@ -174,12 +181,14 @@ class YouTubeVideo:
             self.data = await self.loop.run_in_executor(None, self.ytdl.extract_info, self.video_url, False)
             for name, value in self.data.items():
                 if type(value) not in (list, tuple, dict):
-                    setattr(self, name, value)  # convert dictionary into variables
+                    # convert dictionary into variables
+                    setattr(self, name, value)
             self.downloaded = True
 
     def embed(self, music_queue=None):
         if self.downloaded:
-            embed = discord.Embed(title=self.title, url=self.webpage_url, colour=EMBED_COLOUR)
+            embed = discord.Embed(
+                title=self.title, url=self.webpage_url, colour=EMBED_COLOUR)
             embed.set_thumbnail(url=self.thumbnail)
             minutes, seconds = divmod(self.duration, 60)
             hours, minutes = divmod(minutes, 60)
@@ -194,7 +203,8 @@ class YouTubeVideo:
                              music_queue.visible.index(self),
                              self.requester))
         else:
-            embed = discord.Embed(title=self.title or self.video_url, colour=EMBED_COLOUR)
+            embed = discord.Embed(
+                title=self.title or self.video_url, colour=EMBED_COLOUR)
 
         return embed
 
@@ -304,6 +314,12 @@ class VoiceState:
         self.allow_batch_jobs = True
         self.batch_job = False
 
+    def pause(self):
+        print("Paused")
+
+    def resume(self):
+        print("Resumed")
+
     def is_playing(self):
         """Shows you if the bot is playing or not, returns boolean"""
         if self.voice is None:
@@ -397,6 +413,14 @@ class Music:
         self.voice_states = {}
         self.youtube = YouTube(loop=self.bot.loop)
 
+    def on_voice_state_update(self, member, before, after):
+        state = self.voice_states.get(member.guild)
+        if state and state.voice and state.voice.channel:
+            if len(after.members) == 1:
+                state.pause()
+            elif len(before.members) == 1 and len(after.members) > 1:
+                state.resume()
+
     def get_voice_state(self, guild):
         """Gets the VoiceState object associated with the guild"""
         state = self.voice_states.get(guild)
@@ -408,12 +432,20 @@ class Music:
     @commands.command(hidden=True)
     @commands.is_owner()
     async def musicstates(self, ctx):
-        music_states_msg = "\n".join([server.name for server, state in self.voice_states.items()
-                                      if state.is_playing()])
-        if not music_states_msg:
+        response = []
+        for server, state in self.voice_states.items():
+            if state.is_playing():
+                server_string = f"{server.name} - {len(state.queue.visible)}"
+                if state.queue.looping:
+                    server_string += " L"
+                if state.queue.shuffled:
+                    server_string += " S"
+                response.append(server_string)
+
+        if not response:
             await ctx.send("No servers are using voice currently")
         else:
-            await ctx.send("".join(["```", music_states_msg, "```"]))
+            await ctx.send("```" + "\n".join(response) + "```")
 
     @commands.command()
     @commands.guild_only()
@@ -431,7 +463,8 @@ class Music:
         def check(reaction, user):
             """Checks whether the user reacted and whether the reaction was valid"""
             if user == ctx.author:
-                return str(reaction) in ("\U00002705", "\U0000274E")  # cross or check mark or link
+                # cross or check mark or link
+                return str(reaction) in ("\U00002705", "\U0000274E")
             return False
 
         try:
@@ -452,7 +485,8 @@ class Music:
         state = self.get_voice_state(ctx.guild)
         await state.join_voice_channel(ctx.author.voice.channel)
         async for song in playlist.songs():  # unpack the songs into the queue as a batch job
-            success = state.add_song_to_playlist(song, context=ctx, batch_job=True)
+            success = state.add_song_to_playlist(
+                song, context=ctx, batch_job=True)
             if not success:
                 break
         state.batch_job = False  # end the batch job
@@ -491,7 +525,8 @@ class Music:
         """Shows the currently playing song"""
         state = self.get_voice_state(ctx.guild)
         if state.current is None:
-            raise MusicNotPlaying("Can't show now playing when nothing is being played")
+            raise MusicNotPlaying(
+                "Can't show now playing when nothing is being played")
         await ctx.send(embed=state.current.embed())
 
     @commands.command(aliases=["q"])
@@ -515,7 +550,8 @@ class Music:
                                    for pos, song in enumerate(view))
             queue_embed.add_field(name="Song Queue", value=song_queue)
         elif page != 1:
-            raise IndexError(f"Please request a page within the range 1-{pages}")
+            raise IndexError(
+                f"Please request a page within the range 1-{pages}")
 
         await ctx.send(embed=queue_embed)
 

@@ -8,7 +8,6 @@ import aiohttp
 DISCORDBOTS_API = os.environ.get("DISCORDBOTS_KEY")
 EMBED_COLOUR = 0x19868A
 
-
 class Bot(commands.Bot):
 
     INSTALLED_PLUGINS = [
