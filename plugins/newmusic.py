@@ -574,7 +574,7 @@ class Music:
         else:
             await ctx.send("The queue will no longer loopw")
 
-    @commands.command()
+    @commands.command(aliases=[">"])
     @commands.guild_only()
     async def skip(self, ctx):
         """Skips the current playing song"""
