@@ -12,6 +12,11 @@
 ## About
 Harmony is a fully featured music bot created for Discord. It also features other pointless commands which you may find yourself using.
 
+## What I learnt
+ - Using Google's API to gather YouTube data
+ - Using FFMPEG and AVCONV to process data
+ - Using asyncio to interact with the discord.py library
+
 ## Features
 * Fully featured music integration
 * Crisp sounding audio
